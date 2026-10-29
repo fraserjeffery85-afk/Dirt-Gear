@@ -38,3 +38,13 @@ Not done: a Windows build, the installer, the native pywebview window, the Windo
 1. Run `build\build.ps1` on Windows. Clean-install into a test folder (`--quiet --no-shortcuts --target <dir>`) and launch.
 2. Open a real 4K PSD (for example the Fox fixtures listed in the v1.3 handover), check under-shading, export, and test in game.
 3. Version bumps: 1.0.x for fixes, 1.1 for features.
+
+## v1.0.1 — fast preview (read before touching rendering)
+
+- `source/fastpreview.py` runs **psd-tools 1.19's own `Compositor`** (subclassed as `ScaledCompositor`) over cached, downscaled layer data at preview size (`PREVIEW_SIZE` 1400, zoom 2048). Overrides only geometry/data access (`_accepts`, `_get_group`, `_get_object`, `_get_mask`, `_apply_clip_layers`, `_apply_effects`) plus a cropped, in-place `_apply_source` that is algebraically identical. It is guarded by `SUPPORTED = psd_tools.__version__.startswith('1.19.')`. If you upgrade psd-tools, re-check it against `tests/compare_preview.py`.
+- Features it can't reproduce at scale raise `Unsupported`, and `Document.fast_composite` falls back to the exact full composite (resized) for that PSD.
+- The canvas is split into horizontal bands composited in parallel threads; the compositor state below the artwork's top-level item is cached (`Document.fast_prefix`) so artwork moves only re-blend from there up.
+- Used for: setup/visibility previews, `render/live`, zoom previews, eyedropper, and the 3D diffuse (`/api/viewer/diffuse`). **Exports and `/api/render` (Check final rendering) still use `composite_default` (exact).**
+- Accuracy on `tests/make_features_psd.py` (clipping, masks, opacity/fill, isolated/pass-through/multiply groups, soft light/overlay/screen): mean |Δ| ≈ 0.2–0.4 / 255, differences only on anti-aliased edges. 1:1 scale is pixel-identical.
+- Thumbnails: no global lock, reuse the preview cache (`Document.preview_pixels`), wait for `RENDER_IDLE`, and are loaded by the frontend after the preview, two at a time (`loadThumbs`).
+- Shading detection also accepts combined containers (e.g. "4 SHADING/NORM") and wrinkle/fold/AO/highlight names, and warns when nothing is found.

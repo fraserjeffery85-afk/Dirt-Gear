@@ -1,5 +1,17 @@
 # Dirt Gear releases
 
+## v1.0.1 — 2026-10-29
+
+Speed and shading fixes.
+
+- **Much faster editing.** The on-screen preview now uses a fast renderer: psd-tools' own blend maths run at screen resolution on cached layer data, spread across all CPU cores. On a heavy 4K / 70-layer test PSD: layer toggle ~80 s → ~3 s, logo/name move ~80 s → under 1 s, first preview ~80 s → ~11–20 s (measured on a slow 2-core machine; faster on a normal PC).
+- **Layer toggles no longer freeze the app.** Rows update instantly; several clicks are batched into one preview update, with "Updating preview…" in the status bar instead of a blocking dialog.
+- **Moving artwork re-blends only what's above it.** The composite beneath your artwork is cached, so drags update in well under a second.
+- **Artwork under shading:** shading detection now handles combined groups such as "SHADING/NORM" (artwork goes below the whole group) and names like wrinkles/folds/AO/highlights. If no shading is found, Dirt Gear says so and highlights the "Your added layers" strip to drag.
+- Layer thumbnails load after the preview, two at a time, reuse the preview's decoded layers, and are cached by the browser.
+- 3D preview uses the fast renderer for the diffuse texture.
+- Unchanged: exports and "Check final rendering" still use the exact full-resolution psd-tools composite. PSDs using features the fast renderer can't reproduce (layer strokes, pattern/gradient overlays, vector-drawn masks/fills, knockout) automatically fall back to the exact renderer.
+
 ## v1.0 — 2026-10-29
 
 Dirt Gear is the successor to Moto Gear v1.3, rebuilt with a new look. Same engine, same game-ready exports.

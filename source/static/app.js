@@ -1,7 +1,7 @@
 'use strict';
 const $=id=>document.getElementById(id);
 const token=new URLSearchParams(location.search).get('token')||'';
-let doc=null,state=null,selected=null,view='default',images={},assetImages={},scale=1,zoom=1,pan={x:0,y:0},drag=null,ready=false,dirty=false,undo=[],redo=[],toastTimer,fonts=[],editingText=null,desktop=false,expandedGroups=new Set(),tintCache=new Map(),proofKey='',proofWanted='',proofTimer=null,proofBusy=false,artDragId=null,groupDrag=false,lastFieldSelection=null,previewEpoch=0,fullProofKey='',fullPreviewLoading=new Set();
+let doc=null,state=null,selected=null,view='default',images={},assetImages={},scale=1,zoom=1,pan={x:0,y:0},drag=null,ready=false,dirty=false,undo=[],redo=[],toastTimer,fonts=[],editingText=null,desktop=false,expandedGroups=new Set(),tintCache=new Map(),proofKey='',proofWanted='',proofTimer=null,proofBusy=false,artDragId=null,groupDrag=false,lastFieldSelection=null,previewEpoch=0,docStamp=0,visTimer=null,visBusy=false,visAgain=false,fullProofKey='',fullPreviewLoading=new Set();
 const canvas=$('canvas'),ctx=canvas.getContext('2d');
 const url=path=>`/api/${path}${path.includes('?')?'&':'?'}token=${encodeURIComponent(token)}`;
 function notify(message,error=false){$('toast').textContent=message;$('toast').className=error?'error':'';$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,error?12000:4500)}
@@ -25,25 +25,26 @@ function canonicalColor(value){return /^#[0-9a-f]{6}$/i.test(value||'')?value.to
 function rememberColor(value){const color=canonicalColor(value);if(!color||!state)return;state.palette=[color,...(state.palette||[]).filter(c=>c!==color)].slice(0,32);storePalette();dirty=true;renderSwatches()}
 function renderSwatches(){renderGradientSwatches();for(const[id,inText]of[['swatches',false],['textSwatches',true]]){const box=$(id);box.replaceChildren();const colors=state?.palette||[];if(!colors.length&&!inText){const p=document.createElement('span');p.className='hint';p.textContent='Saved colours appear here.';box.append(p)}for(const color of colors){const button=document.createElement('button');button.type='button';button.className='swatch';button.style.background=color;button.title=color;button.setAttribute('aria-label','Use colour '+color);button.onclick=()=>{if(inText){$('textFill').value=color.toLowerCase();queueFontPreview()}else{setColorInputs(color);const art=current();if(art){snapshot();art.color=color;$('colorizeArtwork').checked=true;draw()}}};box.append(button)}}}
 function setColorInputs(color){const exact=canonicalColor(color);if(!exact)return;$('artColorPicker').value=exact.toLowerCase();$('artColorHex').value=exact}
-async function acceptDoc(data){previewEpoch++;proofFailedKey='';clearTimeout(proofTimer);proofTimer=null;doc=data;state=data.state;images={};assetImages={};selected=null;ready=false;dirty=false;undo=[];redo=[];expandedGroups=new Set(data.layers.filter(l=>l.group).map(l=>l.id));
+async function acceptDoc(data){docStamp=Date.now();previewEpoch++;proofFailedKey='';clearTimeout(proofTimer);proofTimer=null;doc=data;state=data.state;images={};assetImages={};selected=null;ready=false;dirty=false;undo=[];redo=[];expandedGroups=new Set(data.layers.filter(l=>l.group).map(l=>l.id));
  try{const saved=readStoredPalette();state.palette=[...new Set([...(state.palette||[]),...saved].map(c=>canonicalColor(c)).filter(Boolean))].slice(0,32)}catch{state.palette=state.palette||[]}
  $('fileName').textContent=data.filename;$('fileMeta').textContent=`${data.width} × ${data.height} · ${data.layers.length} layers`;$('gearName').value=state.name;
  $('saveProject').disabled=false;$('saveForLater').disabled=false;
  for(const asset of data.assets)assetImages[asset.id]=await imageLoad(url('artwork/'+asset.id));
  renderLayers();renderArtList();renderSwatches();await prepare();
+ if(!state.shading){notify('No shading layer found by name. Drag “Your added layers” onto your shading layer so logos and text sit underneath it.',true);document.querySelector('.added-group')?.classList.add('attention')}
 }
 async function prepare(){
  const setupWork=async()=>{
   const data=await(await api('setup',getState())).json();doc=data;state=data.state;
   await loadPreviews();ready=true;dirty=true;$('empty').hidden=true;canvas.hidden=false;document.body.classList.add('has-doc');
   for(const id of ['addArtwork','pasteArtwork','addName','addNumber','exportPnt','exportTga','proofBtn','open3d','openLogoLibrary','openLayouts'])$(id).disabled=false;$('installPnt').disabled=!$('gameModel').value;
-  $('canvasStatus').textContent='Layout preview · drag artwork to position';renderLayers();renderArtList();resize();
+  $('canvasStatus').textContent='Layout preview · drag artwork to position';renderLayers();setTimeout(loadThumbs,50);renderArtList();resize();
  };if($('busyDialog').open)await setupWork();else await busy('Preparing your template',setupWork);
 }
 async function loadPreviews(){const stamp=Date.now();previewEpoch++;proofFailedKey='';images={};proofKey='';proofWanted='';fullProofKey='';fullPreviewLoading.clear();clearTimeout(proofTimer);proofTimer=null;images.default=await imageLoad(url(`preview/default?v=${stamp}`))}
 function renderLayers(){const list=$('layers'),artList=$('artworkList');artList.remove();list.replaceChildren();if(!doc)return;
  const normals=new Set(state.normal_layers||[state.normal]);
- const toggleVisibility=async(layer,checked)=>{state.visibility[layer.id]=checked;dirty=true;await busy('Updating your template',async()=>{await api('setup',getState());await loadPreviews();renderLayers();draw()})};
+ const toggleVisibility=(layer,checked,row)=>{state.visibility[layer.id]=checked;dirty=true;row?.classList.toggle('off',!checked);queueVisibilityUpdate()};
  const visible=doc.layers.filter(layer=>{const parents=layer.id.split('.').slice(0,-1);let ancestor='';return !parents.some(part=>{ancestor=ancestor?ancestor+'.'+part:part;return !expandedGroups.has(ancestor)})});
  let anchor=state.placement||'';while(anchor&&!visible.some(layer=>layer.id===anchor))anchor=anchor.includes('.')?anchor.slice(0,anchor.lastIndexOf('.')):'';
  const addArtworkGroup=depth=>{const row=document.createElement('div');row.className='added-group';row.draggable=true;row.style.paddingLeft=(13+depth*10)+'px';row.title='Drag this section onto a PSD layer to place all artwork below it';row.innerHTML='<span class="drag-handle">⠿</span><span>YOUR ADDED LAYERS</span><span class="role">DRAG TO PLACE</span>';
@@ -54,17 +55,45 @@ function renderLayers(){const list=$('layers'),artList=$('artworkList');artList.
  const row=document.createElement('div');row.className='layer'+(layer.group?' group':'')+(!state.visibility[layer.id]?' off':'');row.style.paddingLeft=(13+layer.depth*10)+'px';
  const input=document.createElement('input');input.type='checkbox';input.checked=state.visibility[layer.id];input.id='layer-'+layer.id;input.setAttribute('aria-label','Show '+layer.name);
  const isMap=normals.has(layer.id)||layer.id===state.spec;input.disabled=isMap;input.title=isMap?'Used automatically for export':`Show ${layer.name}`;
- input.onchange=()=>toggleVisibility(layer,input.checked);
- const thumb=document.createElement('img');thumb.className='layer-thumb';thumb.alt='';thumb.loading='lazy';thumb.decoding='async';thumb.src=url('layer/thumbnail/'+layer.id);
+ input.onchange=()=>toggleVisibility(layer,input.checked,row);
+ const thumb=document.createElement('img');thumb.className='layer-thumb';thumb.alt='';thumb.decoding='async';thumb.dataset.src=url('layer/thumbnail/'+layer.id+'?d='+docStamp);
  const label=document.createElement(layer.group?'button':'label');if(layer.group){label.type='button';label.className='layer-expand';label.onclick=()=>{expandedGroups.has(layer.id)?expandedGroups.delete(layer.id):expandedGroups.add(layer.id);renderLayers()}}else label.htmlFor=input.id;label.textContent=(layer.group?(expandedGroups.has(layer.id)?'▾ ':'▸ '):'')+layer.name;label.title=layer.name;
  const role=document.createElement('span');role.className='role';role.textContent=layer.id===state.shading?'SHADE':normals.has(layer.id)?'NORM':layer.id===state.spec?'SPEC':layer.kind==='smartobject'?'ART':'';
  row.append(input,thumb,label,role);
- if(!isMap){row.ondragover=e=>{if(groupDrag){e.preventDefault();e.dataTransfer.dropEffect='move';row.classList.add('drop-target')}};row.ondragleave=()=>row.classList.remove('drop-target');row.ondrop=e=>{if(!groupDrag)return;e.preventDefault();groupDrag=false;state.placement=layer.id;dirty=true;renderLayers();draw();notify('Added layers are now below '+layer.name)}}
+ if(!isMap){row.ondragover=e=>{if(groupDrag){e.preventDefault();e.dataTransfer.dropEffect='move';row.classList.add('drop-target')}};row.ondragleave=()=>row.classList.remove('drop-target');row.ondrop=e=>{if(!groupDrag)return;e.preventDefault();groupDrag=false;state.placement=layer.id;dirty=true;renderLayers();draw();document.querySelector('.added-group')?.classList.remove('attention');notify('Added layers are now below '+layer.name)}}
  list.append(row);
  if(anchor===layer.id&&(!visible[i+1]||!visible[i+1].id.startsWith(anchor+'.')))addArtworkGroup(layer.depth);
  if(anchor&&layer.id.startsWith(anchor+'.')&&(!visible[i+1]||!visible[i+1].id.startsWith(anchor+'.')))addArtworkGroup(doc.layers.find(x=>x.id===anchor)?.depth||0);
  }
  if(!list.contains(artList))addArtworkGroup(0);
+ loadThumbs();
+}
+function queueVisibilityUpdate(){
+ document.body.classList.add('pending');$('canvasStatus').textContent='Updating preview…';
+ clearTimeout(visTimer);visTimer=setTimeout(runVisibilityUpdate,350);
+}
+async function runVisibilityUpdate(){
+ visTimer=null;if(visBusy){visAgain=true;return}
+ visBusy=true;const epoch=previewEpoch;
+ try{
+  await api('setup',getState());if(epoch!==previewEpoch)return;
+  const stamp=Date.now(),image=await imageLoad(url(`preview/default?v=${stamp}`));if(epoch!==previewEpoch)return;
+  images.default=image;images.defaultFull=null;images.proof=null;images.proofFull=null;proofKey='';fullProofKey='';proofFailedKey='';delete images.normal;delete images.spec;
+  draw();
+ }catch(e){notify('Could not update the preview: '+e.message,true)}
+ finally{visBusy=false;if(visAgain){visAgain=false;runVisibilityUpdate()}else if(!proofBusy)draw()}
+}
+// Thumbnails load after the preview, two at a time, so they never queue
+// ahead of preview images in the browser's connection limit.
+let thumbsActive=0;
+function loadThumbs(){
+ if(!ready)return;
+ const pending=[...document.querySelectorAll('.layer-thumb[data-src]:not([src])')];
+ while(thumbsActive<2&&pending.length){
+  const img=pending.shift();thumbsActive++;
+  const done=()=>{thumbsActive--;loadThumbs()};
+  img.onload=done;img.onerror=done;img.src=img.dataset.src;
+ }
 }
 function moveArtwork(id,delta){const i=state.artworks.findIndex(a=>a.id===id),j=i+delta;if(i<0||j<0||j>=state.artworks.length)return;snapshot();[state.artworks[i],state.artworks[j]]=[state.artworks[j],state.artworks[i]];renderArtList();draw()}
 function renderArtList(){const list=$('artworkList');list.replaceChildren();if(!state?.artworks.length){const p=document.createElement('p');p.className='muted empty-note';p.textContent='Your logos, names and numbers will stack here.';list.append(p)}
@@ -127,7 +156,7 @@ function paintCanvas(){if(!doc||!ready)return;const {r,x,y}=metrics(),dpr=window
  }
  ctx.restore();
  $('retryShading').hidden=!(hasArtwork&&!accurate&&proofFailedKey===key);
- document.body.classList.toggle('pending',hasArtwork&&!accurate&&proofFailedKey!==key);$('canvasStatus').textContent=hasArtwork?(accurate?'Shaded preview · ready':proofFailedKey===key?'Editing preview · shading needs a retry':drag?'Editing preview · release to update shading':'Editing preview · updating shading…'):'Ready to add artwork';
+ const visPending=visBusy||!!visTimer;document.body.classList.toggle('pending',visPending||hasArtwork&&!accurate&&proofFailedKey!==key);$('canvasStatus').textContent=visPending?'Updating preview…':hasArtwork?(accurate?'Shaded preview · ready':proofFailedKey===key?'Editing preview · shading needs a retry':drag?'Editing preview · release to update shading':'Editing preview · updating shading…'):'Ready to add artwork';
  const a=current();if(a&&view==='default'){ctx.save();ctx.translate(x+a.x*scale,y+a.y*scale);ctx.rotate(a.rotation*Math.PI/180);ctx.strokeStyle='#D7FF3C';ctx.lineWidth=1.5;ctx.strokeRect(-a.width*scale/2,-a.height*scale/2,a.width*scale,a.height*scale);ctx.fillStyle='#D7FF3C';for(const [hx,hy] of [[a.width*scale/2,a.height*scale/2],[a.width*scale/2,0],[0,a.height*scale/2]])ctx.fillRect(hx-5,hy-5,10,10);ctx.beginPath();ctx.moveTo(0,-a.height*scale/2);ctx.lineTo(0,-a.height*scale/2-22);ctx.stroke();ctx.beginPath();ctx.arc(0,-a.height*scale/2-22,5,0,Math.PI*2);ctx.fill();ctx.restore()}
  $('zoomLabel').textContent=Math.round(scale*100)+'%';
 }
@@ -265,8 +294,8 @@ $('open3d').onclick=async()=>{
  try{
   if(!riderViewer)riderViewer=await DirtRider.create($('riderCanvas'));
   riderViewer.resize();
-  const epoch=previewEpoch;await api('render',getState());
-  const stamp=Date.now();const [texture,normal,reflection]=await Promise.all([imageLoad(url('preview/proof?full=1&v='+stamp)),imageLoad(url('viewer/map/normal?v='+stamp)),imageLoad(url('viewer/map/spec?v='+stamp))]);
+  const epoch=previewEpoch;const diffuse=URL.createObjectURL(await(await api('viewer/diffuse',getState())).blob());
+  const stamp=Date.now();const [texture,normal,reflection]=await Promise.all([imageLoad(diffuse).finally(()=>setTimeout(()=>URL.revokeObjectURL(diffuse),1000)),imageLoad(url('viewer/map/normal?v='+stamp)),imageLoad(url('viewer/map/spec?v='+stamp))]);
   if(epoch!==previewEpoch||!$('viewerDialog').open)return;
   riderViewer.setTextures(texture,normal,reflection);riderViewer.setMaps($('riderNormals').checked,$('riderReflections').checked);$('viewerStatus').textContent='Your current design · '+(state.normal_layers.length?'Normal map':'No Normal map')+' · '+(state.spec?'Reflection map':'No Reflection map (matte)');
  }catch(e){$('viewerStatus').textContent='Could not open preview: '+e.message}

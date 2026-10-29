@@ -27,6 +27,7 @@ from scipy.ndimage import binary_propagation
 from psd_tools import PSDImage
 from psd_tools.api.layers import PixelLayer
 from packing import tga_bytes, pack_pnt, read_pnt, field
+import fastpreview
 
 ROOT = Path(getattr(sys, '_MEIPASS', Path(__file__).parent))
 app = Flask(__name__, static_folder=str(ROOT/'static'))
@@ -40,6 +41,12 @@ PORT = 0
 LAST_HEARTBEAT = time.monotonic()
 FONTS = {}
 NATIVE_WINDOW = None
+PREVIEW_SIZE = 1400      # long side of the interactive preview
+ZOOM_PREVIEW_SIZE = 2048 # long side when zoomed in
+THUMB_LOCK = threading.Lock()
+RENDER_IDLE = threading.Event()   # thumbnails yield to renders
+RENDER_IDLE.set()
+RENDERS_ACTIVE = [0]
 
 
 def installed_fonts():
@@ -125,6 +132,10 @@ class Document:
         self.text_raster_cache = {}
         self.maps = None
         self.thumb_cache = {}
+        self.fast_cache = fastpreview.LayerCache()
+        self.fast_failed = None      # reason the fast path is unavailable for this PSD
+        self.fast_images = {}        # (kind, size) -> (state key, PIL image)
+        self.fast_prefix = {}        # cached compositor state below the artwork
         self.state = {'name': Path(name).stem[:99], 'artworks': [], 'visibility': {}, 'shading': '', 'placement': '', 'normal': '', 'normal_layers': [], 'spec': '', 'palette': []}
         self.walk(self.psd)
         self.pixel_cache = OrderedDict()
@@ -166,11 +177,23 @@ class Document:
         spec_candidates = [r for r in self.rows if r['group'] and spec_name.search(r['name']) and not normal_name.search(r['name']) and not shade_name.search(r['name'])] or [r for r in self.rows if not r['group'] and spec_name.search(r['name'])]
         if spec_candidates:
             self.state['spec'] = sorted(spec_candidates, key=lambda r:r['depth'])[0]['id']
-        shade_candidates = [r for r in self.rows if shade_name.search(r['name']) and not normal_name.search(r['name']) and not spec_name.search(r['name'])]
+        maps = set(self.state['normal_layers']) | ({self.state['spec']} if self.state['spec'] else set())
+        def inside_map(row):
+            return any(row['id'] == m or row['id'].startswith(m+'.') for m in maps)
+        shade_candidates = [r for r in self.rows if shade_name.search(r['name']) and not normal_name.search(r['name']) and not spec_name.search(r['name']) and not inside_map(r)]
+        if not shade_candidates:
+            # Combined containers such as "4 SHADING/NORM": place artwork below
+            # the whole container, which puts it under the shading inside it.
+            shade_candidates = [r for r in self.rows if r['group'] and shade_name.search(r['name']) and not inside_map(r)]
+        if not shade_candidates:
+            extra_name = re.compile(r'\b(?:wrinkles?|folds?|creases?|ambient[ _-]?occlusion|ao|lighting|highlights?)\b', re.I)
+            shade_candidates = [r for r in self.rows if extra_name.search(r['name']) and not inside_map(r)]
         if shade_candidates:
             self.state['shading'] = sorted(shade_candidates, key=lambda r:(r['depth'],not r['group']))[0]['id']
         self.state['placement'] = self.state['shading']
         self.warnings = []
+        if not self.state['shading']:
+            self.warnings.append('No shading layer was found by name. Drag "Your added layers" onto your shading layer so logos and text sit underneath it.')
         if any(l.kind in ('smartobject', 'type') or l.has_effects() for l in self.layers.values()):
             self.warnings.append('This PSD contains text, smart objects or effects. Existing artwork is rendered; check the preview against Photoshop before your first export.')
 
@@ -203,21 +226,39 @@ class Document:
             layer = self.layers[key]
             if layer.is_group():
                 # Rendering a whole 4K group for a 36px icon can stall the editor.
-                child = next((item for item in reversed(layer) if item.visible), None)
-                if child is None and len(layer):
-                    child = layer[-1]
+                def kids(group):
+                    return [item for item in list(group) if item.name != 'Dirt Gear artwork']
+                items = kids(layer)
+                child = next((item for item in reversed(items) if item.visible), items[-1] if items else None)
                 while child is not None and child.is_group():
-                    child = next((item for item in reversed(child) if item.visible), child[-1] if len(child) else None)
-                image = child.topil() if child is not None else None
+                    items = kids(child)
+                    child = next((item for item in reversed(items) if item.visible), items[-1] if items else None)
+                image = self.preview_pixels(child) if child is not None else None
             else:
-                image = layer.topil()
+                image = self.preview_pixels(layer)
             tile = Image.new('RGBA', (36, 36), (35, 39, 42, 255))
             if image is not None:
                 image = image.convert('RGBA')
-                image.thumbnail((34, 34), Image.Resampling.LANCZOS)
+                image.thumbnail((34, 34), Image.Resampling.BOX, reducing_gap=2.0)
                 tile.alpha_composite(image, ((36-image.width)//2, (36-image.height)//2))
             self.thumb_cache[key] = png(tile)
         return self.thumb_cache[key]
+
+    def preview_pixels(self, layer):
+        """A layer's pixels at preview scale, shared with the preview cache."""
+        key = next((k for k, l in self.layers.items() if l is layer), None)
+        if key is None or self.fast_failed is not None or not fastpreview.SUPPORTED:
+            return layer.topil()
+        scale = min(1.0, PREVIEW_SIZE / max(self.psd.size))
+        try:
+            data = self.fast_cache.get((key, scale), lambda: fastpreview.layer_data(layer, scale))
+        except Exception:
+            return layer.topil()
+        if 'rgba' in data:
+            return Image.fromarray(data['rgba'][0], 'RGBA')
+        if 'rgb' in data:
+            return Image.fromarray(data['rgb'][0], 'RGB')
+        return None
 
     def update(self, data):
         for key in ('shading', 'normal', 'spec'):
@@ -371,10 +412,131 @@ class Document:
         key = json.dumps({k:self.state[k] for k in ('visibility','shading','normal_layers','spec')}, sort_keys=True)
         if key == self.preview_key:
             return
-        self.base_preview_image = self.composite_default(False, False)
-        self.base_render_key = key
-        self.previews = {'default': png(self.base_preview_image, 1400)}
-        self.preview_key = json.dumps({k:self.state[k] for k in ('visibility','shading','normal_layers','spec')}, sort_keys=True)
+        image = self.fast_composite(False, PREVIEW_SIZE)
+        self.previews = {'default': png(image, PREVIEW_SIZE)}
+        self.preview_key = key
+
+    # -- fast interactive preview ------------------------------------------
+    def _fast_source(self, scale, art=None, placeholder=None):
+        ids = {id(layer): key for key, layer in self.layers.items()}
+        def source(layer, kind):
+            if placeholder is not None and layer is placeholder:
+                return (art[kind] if art and art.get(kind) is not None else (None, None))
+            key = ids.get(id(layer))
+            if key is None:
+                raise fastpreview.Unsupported('unknown layer')
+            data = self.fast_cache.get((key, scale), lambda: fastpreview.layer_data(layer, scale))
+            return fastpreview.as_float(data, kind)
+        return source
+
+    def _prefetch(self, scale):
+        """Decode visible layers in parallel before compositing (first open)."""
+        from concurrent.futures import ThreadPoolExecutor
+        todo = [(k, l) for k, l in self.layers.items()
+                if not l.is_group() and l.is_visible() and (k, scale) not in self.fast_cache.data]
+        if len(todo) < 2:
+            return
+        def work(item):
+            key, layer = item
+            self.fast_cache.get((key, scale), lambda: fastpreview.layer_data(layer, scale))
+        with ThreadPoolExecutor(max_workers=min(4, os.cpu_count() or 2)) as pool:
+            list(pool.map(work, todo))
+
+    def fast_composite(self, artwork=True, size=PREVIEW_SIZE):
+        RENDERS_ACTIVE[0] += 1
+        RENDER_IDLE.clear()
+        try:
+            return self._fast_composite_cached(artwork, size)
+        finally:
+            RENDERS_ACTIVE[0] -= 1
+            if RENDERS_ACTIVE[0] <= 0:
+                RENDERS_ACTIVE[0] = 0
+                RENDER_IDLE.set()
+
+    def _fast_composite_cached(self, artwork, size):
+        """Preview-resolution composite (long side `size`), artwork under the chosen layer.
+
+        Uses psd-tools' blend maths on cached downscaled layers; falls back to
+        the exact full-resolution composite if the PSD needs something the
+        fast path cannot reproduce."""
+        scale = min(1.0, size / max(self.psd.size))
+        key = json.dumps({k:self.state[k] for k in ('visibility','shading','placement','normal_layers','spec')
+                          } | {'artworks': self.state['artworks'] if artwork else []}, sort_keys=True)
+        cached = self.fast_images.get((artwork, size))
+        if cached and cached[0] == key:
+            return cached[1].copy()
+        if self.fast_failed is None:
+            try:
+                image = self._fast_composite(artwork, scale)
+            except fastpreview.Unsupported as exc:
+                self.fast_failed = str(exc)
+                logging.warning('Fast preview unavailable (%s); using full rendering', exc)
+            except Exception:
+                self.fast_failed = 'error'
+                logging.exception('Fast preview failed; using full rendering')
+        if self.fast_failed is not None:
+            image = self.composite_default(artwork)
+            image = image.copy()
+            image.thumbnail((size, size), Image.Resampling.LANCZOS)
+        if len(self.fast_images) > 6:
+            self.fast_images.clear()
+        self.fast_images[(artwork, size)] = (key, image.copy())
+        return image
+
+    def _fast_composite(self, artwork, scale):
+        self.set_visibility()
+        self._prefetch(scale)
+        placeholder = None
+        art = None
+        try:
+            if artwork and self.state['artworks']:
+                target = self.layers.get(self.state['placement'])
+                parent = target.parent if target is not None else self.psd
+                art = fastpreview.art_data(self.art_image_scaled(scale))
+                placeholder = PixelLayer.frompil(Image.new('RGBA', (1, 1)), parent, name='Dirt Gear artwork')
+                parent.remove(placeholder)
+                parent.insert(parent.index(target) if target is not None else len(parent), placeholder)
+            prefix_key = json.dumps([scale, self.state['visibility'], self.state['normal_layers'],
+                                     self.state['spec'], self.state['placement']], sort_keys=True)
+            return fastpreview.composite(self.psd, scale, self._fast_source(scale, art, placeholder),
+                                         placeholder=placeholder, prefix_store=self.fast_prefix,
+                                         prefix_key=prefix_key)
+        finally:
+            if placeholder is not None:
+                placeholder.parent.remove(placeholder)
+
+    def art_image_scaled(self, scale):
+        """The artwork layer rendered directly at preview scale."""
+        width = max(1, round(self.psd.width * scale))
+        height = max(1, round(self.psd.height * scale))
+        result = Image.new('RGBA', (width, height))
+        for art in self.state['artworks']:
+            if not art.get('visible', True):
+                continue
+            source = self.assets[art['asset']]['image'].convert('RGBA')
+            text_settings = art.get('text')
+            w, h = max(1, round(art['width'] * scale)), max(1, round(art['height'] * scale))
+            if text_settings and text_settings.get('font') in installed_fonts():
+                base_width = max(1, text_settings.get('base_width', source.width))
+                base_height = max(1, text_settings.get('base_height', source.height))
+                need = max(w / base_width, h / base_height)
+                if need > 1.05 and (source.width < w or source.height < h):
+                    cache_key = (art['asset'], w, h)
+                    if cache_key not in self.text_raster_cache:
+                        if len(self.text_raster_cache) >= 8:
+                            self.text_raster_cache.clear()
+                        self.text_raster_cache[cache_key] = render_text_bitmap(text_settings, min(need, 8))
+                    source = self.text_raster_cache[cache_key]
+            if art.get('color'):
+                recolored = Image.new('RGBA', source.size, ImageColor.getrgb(art['color'])+(0,))
+                recolored.putalpha(source.getchannel('A'))
+                source = recolored
+            source = source.resize((w, h), Image.Resampling.LANCZOS)
+            if art['opacity'] < 1:
+                source.putalpha(source.getchannel('A').point(lambda v: round(v*art['opacity'])))
+            source = source.rotate(-art['rotation'], Image.Resampling.BICUBIC, expand=True)
+            result.alpha_composite(source, (round(art['x']*scale-source.width/2), round(art['y']*scale-source.height/2)))
+        return result
 
     def textures(self):
         if not self.state['normal_layers']:
@@ -439,13 +601,12 @@ def preview(kind):
     with LOCK:
         doc = require_doc()
         if request.args.get('full') == '1' and kind in ('default','proof'):
-            source = doc.base_preview_image if kind == 'default' else doc.rendered
-            if source is None:
-                abort(404)
-            cache_key = kind+'_full'
-            if cache_key not in doc.previews:
-                doc.previews[cache_key] = png(source, min(4096,max(doc.psd.size)))
-            return send_file(io.BytesIO(doc.previews[cache_key]), mimetype='image/png')
+            if kind == 'proof' and request.args.get('exact') == '1':
+                if doc.rendered is None:
+                    abort(404)
+                return send_file(io.BytesIO(png(doc.rendered, min(4096, max(doc.psd.size)))), mimetype='image/png')
+            image = doc.fast_composite(kind == 'proof', ZOOM_PREVIEW_SIZE)
+            return send_file(io.BytesIO(png(image)), mimetype='image/png')
         if kind in ('normal', 'spec') and kind not in doc.previews and (doc.state[kind] or kind == 'spec'):
             doc.previews[kind] = png(doc.isolated(kind).convert('RGB'), 1400)
         if kind not in doc.previews:
@@ -571,11 +732,17 @@ def asset(key):
 
 @app.get('/api/layer/thumbnail/<key>')
 def layer_thumbnail(key):
-    with LOCK:
-        doc = require_doc()
-        if key not in doc.layers:
-            abort(404)
-        return send_file(io.BytesIO(doc.thumbnail(key)), mimetype='image/png')
+    # Thumbnails only read layer pixels, so they don't wait behind a render.
+    doc = require_doc()
+    if key not in doc.layers:
+        abort(404)
+    if key not in doc.thumb_cache:
+        RENDER_IDLE.wait(timeout=120)   # let the preview render finish first
+    with THUMB_LOCK:
+        data = doc.thumbnail(key)
+    response = send_file(io.BytesIO(data), mimetype='image/png')
+    response.headers['Cache-Control'] = 'private, max-age=86400, immutable'
+    return response
 
 
 @app.post('/api/clipboard')
@@ -659,9 +826,10 @@ def sample_colour():
         x, y = int(data['x']), int(data['y'])
         if not (0 <= x < doc.psd.width and 0 <= y < doc.psd.height):
             raise ValueError('Click inside the gear texture.')
-        if doc.base_preview_image is None:
-            doc.prepare_preview()
-        rgb = doc.base_preview_image.getpixel((x, y))[:3]
+        image = doc.fast_composite(False, ZOOM_PREVIEW_SIZE)
+        sx = min(image.width-1, int(x * image.width / doc.psd.width))
+        sy = min(image.height-1, int(y * image.height / doc.psd.height))
+        rgb = image.getpixel((sx, sy))[:3]
         return jsonify(colour='#' + ''.join(f'{v:02x}' for v in rgb))
 
 
@@ -851,6 +1019,14 @@ def logo_add(key):
         return jsonify(add_asset(path.read_bytes(), meta['name']))
 
 
+@app.post('/api/viewer/diffuse')
+def viewer_diffuse():
+    with LOCK:
+        doc = require_doc()
+        doc.update(request.get_json())
+        return send_file(io.BytesIO(png(doc.fast_composite(True, ZOOM_PREVIEW_SIZE))), mimetype='image/png')
+
+
 @app.post('/api/render')
 def render():
     with LOCK:
@@ -868,8 +1044,7 @@ def render_live():
     with LOCK:
         doc = require_doc()
         doc.update(request.get_json())
-        result = png(doc.composite_default(), 1400)
-        doc.previews.pop('proof_full', None)
+        result = png(doc.fast_composite(True, PREVIEW_SIZE))
         return send_file(io.BytesIO(result), mimetype='image/png')
 
 
