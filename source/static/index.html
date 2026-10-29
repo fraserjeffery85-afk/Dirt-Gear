@@ -23,7 +23,7 @@
 </svg>
 
 <header class="topbar">
- <div class="brand"><img src="/static/icon.svg" alt="" class="brand-mark"><span class="wordmark">DIRT GEAR</span><span class="version">v1.0.1</span></div>
+ <div class="brand"><img src="/static/icon.svg" alt="" class="brand-mark"><span class="wordmark">DIRT GEAR</span><button id="versionBtn" class="version" title="About &amp; updates">v1.0.2</button></div>
  <div class="doc-pill" title="Current template"><span class="doc-dot"></span><strong id="fileName">No gear open</strong><span id="fileMeta">Open a PSD to begin</span></div>
  <div class="top-actions">
   <button id="openProject" class="ghost"><svg><use href="#i-file"/></svg>Open project</button>
@@ -33,6 +33,7 @@
   <button id="exportPnt" class="primary" disabled><svg><use href="#i-export"/></svg>Export .pnt</button>
  </div>
 </header>
+<div id="updateBar" class="update-bar" hidden role="status"><span class="update-dot"></span><span id="updateText">A new version is available</span><button id="updateNotes" class="text-btn">What’s new</button><span class="update-spacer"></span><button id="updateSkip" class="ghost">Skip this version</button><button id="updateInstall" class="primary">Download and install</button><button id="updateClose" class="close" aria-label="Hide until next start">×</button></div>
 
 <main class="shell">
 <aside class="left panel">
@@ -133,5 +134,10 @@
 <dialog id="viewerDialog" class="wide"><div class="dialog-heading"><div><div class="eyebrow">On the rider</div><h2>3D preview</h2></div><button id="close3d" class="close" aria-label="Close 3D preview">×</button></div><p>Drag to rotate · scroll to zoom · Shift- or right-drag to pan. Studio lighting — in-game lighting will differ.</p><canvas id="riderCanvas" aria-label="3D rider wearing your gear"></canvas><div class="viewer-bar"><div class="viewer-materials"><label class="checkline"><input id="riderNormals" type="checkbox" checked> Normal detail</label><label class="checkline"><input id="riderReflections" type="checkbox" checked> Reflections</label></div><div class="viewer-controls"><button id="riderFront">Front</button><button id="riderBack">Back</button><button id="riderPan" aria-pressed="false">Pan</button><button id="riderUp" aria-label="Move rider up">↑</button><button id="riderDown" aria-label="Move rider down">↓</button><button id="riderReset">Reset</button></div></div><span id="viewerStatus" role="status"></span></dialog>
 <dialog id="logoDialog"><div class="dialog-heading"><div><div class="eyebrow">Library</div><h2>Saved logos</h2></div><button id="closeLogos" class="close" aria-label="Close saved logos">×</button></div><p>Click a logo to add it to this project. Saved on this PC.</p><div id="logoLibrary"></div></dialog>
 <dialog id="layoutDialog"><div class="dialog-heading"><div><div class="eyebrow">Library</div><h2>Logo layouts</h2></div><button id="closeLayouts" class="close" aria-label="Close layouts">×</button></div><p>Save every added logo, name and number as a set, then apply it to another template with positions, sizes and order kept. Works best with matching UV layouts.</p><div class="layout-save"><input id="layoutName" maxlength="100" aria-label="Layout name" placeholder="Team race layout"><button id="saveLayout" type="button" class="primary">Save current</button></div><div id="layoutLibrary"></div><p class="hint">Template artwork isn’t included. Applied layers stay editable and sit at this template’s chosen shading position.</p></dialog>
+<dialog id="aboutDialog"><div class="dialog-heading"><div><div class="eyebrow">About</div><h2>Dirt Gear <span id="aboutVersion"></span></h2></div><button id="closeAbout" class="close" aria-label="Close">×</button></div>
+ <p id="updateStatus">Updates come from the Dirt Gear releases on GitHub.</p>
+ <div id="aboutNotesWrap" hidden><div class="eyebrow">What’s new in <span id="aboutLatest"></span></div><div id="aboutNotes" class="release-notes"></div></div>
+ <label class="checkline"><input id="checkOnStart" type="checkbox" checked> Check for updates when Dirt Gear starts</label>
+ <div class="dialog-footer"><button id="checkNow">Check for updates</button><button id="aboutInstall" class="primary" hidden>Download and install</button></div></dialog>
 <input id="psdInput" type="file" accept=".psd" hidden><input id="projectInput" type="file" accept=".dirtgear,.motogear" hidden><input id="artInput" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" multiple hidden>
 <script src="/static/viewer.js"></script><script src="/static/app.js"></script></body></html>

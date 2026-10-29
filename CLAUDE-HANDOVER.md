@@ -48,3 +48,10 @@ Not done: a Windows build, the installer, the native pywebview window, the Windo
 - Accuracy on `tests/make_features_psd.py` (clipping, masks, opacity/fill, isolated/pass-through/multiply groups, soft light/overlay/screen): mean |Δ| ≈ 0.2–0.4 / 255, differences only on anti-aliased edges. 1:1 scale is pixel-identical.
 - Thumbnails: no global lock, reuse the preview cache (`Document.preview_pixels`), wait for `RENDER_IDLE`, and are loaded by the frontend after the preview, two at a time (`loadThumbs`).
 - Shading detection also accepts combined containers (e.g. "4 SHADING/NORM") and wrinkle/fold/AO/highlight names, and warns when nothing is found.
+
+## v1.0.2 — self-updates
+
+- `source/updater.py` checks `releases/latest` for the repo in `update_repo.txt`, which the release workflow writes into the build (dev builds have none, so they never check). It verifies `update.json` (Ed25519 signature `update.json.sig` against `source/update_public_key.pem`), downloads to `%LOCALAPPDATA%\Dirt Gear\updates`, and checks size and SHA-256. Routes: `/api/update/check|settings|install|open-page`. Settings (`skip_version`, `check_on_start`) live in `settings.json` in the app data folder.
+- Install: the app launches `Dirt-Gear-Setup-x.exe --update --target <install dir> --wait-pid <pid>` detached, then closes its window. The installer waits, swaps the folder with a backup (retrying while Windows releases files) and relaunches.
+- Signing: `tools/keygen.py` (once) and `tools/make_update.py` (in CI, with secret `UPDATE_SIGNING_KEY`). Without the secret, releases are unsigned and the app only offers the download page.
+- Tests: `tests/test_updater.py` (fake GitHub; tampering, unsigned, older and offline cases) runs in CI. The workflow's end-to-end step (when the key is set) self-updates an installed copy from a local fake release. `DIRT_GEAR_UPDATE_API` overrides the API base for testing.

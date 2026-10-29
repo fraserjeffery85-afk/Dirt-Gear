@@ -1,5 +1,13 @@
 # Dirt Gear releases
 
+## v1.0.2 — 2026-10-30
+
+- **Built-in updates**, the same as Optic and Moto Lines Studio. Dirt Gear checks GitHub on start and shows a bar when a new version is out: **Download and install** (signature and SHA-256 checked, closes, updates in place, reopens), **Skip this version**, or dismiss. *What's new* shows the release notes.
+- Click the version label (top left) for *About & updates*: check now, see what's new, and turn the start-up check on or off.
+- Releases now publish `Dirt-Gear-Setup-<version>.exe` with a signed `update.json`. The workflow runs an end-to-end self-update test on Windows before publishing.
+- The installer gained a silent update mode that waits for the app to close and rolls back on failure.
+- Install this version once by hand. From here on, updates come through the app. See `docs/UPDATES.md` for the one-time signing key setup.
+
 ## v1.0.1 — 2026-10-29
 
 Speed and shading fixes.

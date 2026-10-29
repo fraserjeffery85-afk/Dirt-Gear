@@ -5,7 +5,11 @@ import os
 from PyInstaller.utils.hooks import collect_all
 
 SRC = os.path.abspath(os.path.join(SPECPATH, '..', 'source'))
-datas = [(os.path.join(SRC, 'static'), 'static'), (os.path.join(SRC, 'fonts'), 'fonts'), (os.path.join(SRC, 'icon.ico'), '.')]
+datas = [(os.path.join(SRC, 'static'), 'static'), (os.path.join(SRC, 'fonts'), 'fonts'), (os.path.join(SRC, 'icon.ico'), '.'),
+         (os.path.join(SRC, '..', 'VERSION.txt'), '.'), (os.path.join(SRC, 'update_public_key.pem'), '.')]
+# Written by the release workflow; builds without it never check for updates.
+if os.path.isfile(os.path.join(SRC, 'update_repo.txt')):
+    datas.append((os.path.join(SRC, 'update_repo.txt'), '.'))
 binaries = []
 hiddenimports = ['aggdraw', 'webview.platforms.edgechromium']
 for package in ('psd_tools', 'skimage', 'scipy'):

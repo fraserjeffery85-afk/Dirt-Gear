@@ -11,3 +11,7 @@ build/payload.zip
 *.dirtgear
 *.motogear
 session.json
+dirt-gear-update-signing-key.pem
+*.pem
+!source/update_public_key.pem
+source/update_repo.txt

@@ -17,7 +17,7 @@ $Py = Join-Path $Root '.venv\Scripts\python.exe'
 & $Py build\build_payload.py
 # 3. Single-file installer
 & $Py -m PyInstaller --noconfirm --onefile --windowed --name "Dirt Gear v$Version Setup" `
-    --icon "$Root\source\icon.ico" --add-data "$Root\build\payload.zip;." `
+    --icon "$Root\source\icon.ico" --add-data "$Root\build\payload.zip;." --add-data "$Root\VERSION.txt;." `
     --distpath release --workpath work\installer --specpath work\installer "$Root\build\installer.py"
 
 Write-Host "Built release\Dirt Gear v$Version Setup.exe"

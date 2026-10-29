@@ -34,7 +34,9 @@ kbd{font:10.5px var(--mono);background:var(--raise-2);border:1px solid var(--lin
 .brand{display:flex;align-items:center;gap:10px}
 .brand-mark{width:30px;height:30px}
 .wordmark{font-family:'DG Brand','Segoe UI',sans-serif;font-size:21px;letter-spacing:.5px;line-height:1;color:var(--text);white-space:nowrap;padding-top:2px}
-.version{font:10.5px var(--mono);color:var(--faint);border:1px solid var(--line-2);border-radius:20px;padding:2px 7px}
+.version{font:10.5px var(--mono);color:var(--faint);background:none;border:1px solid var(--line-2);border-radius:20px;padding:2px 8px;font-weight:400}
+.version:hover:not(:disabled){color:var(--text);background:var(--raise);border-color:var(--line-2)}
+body.update-ready .version{color:var(--accent);border-color:#D7FF3C66}
 .doc-pill{justify-self:center;display:flex;align-items:center;gap:10px;min-width:0;max-width:min(520px,100%);padding:7px 14px;border:1px solid var(--line);border-radius:30px;background:var(--bg)}
 .doc-pill strong{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .doc-pill span#fileMeta{font:11px var(--mono);color:var(--muted);white-space:nowrap}
@@ -43,6 +45,17 @@ body.has-doc .doc-dot{background:var(--accent);box-shadow:0 0 0 3px var(--accent
 .top-actions{display:flex;align-items:center;gap:4px}
 .top-actions .divider{width:1px;height:22px;background:var(--line-2);margin:0 6px}
 .top-actions .primary{margin-left:6px}
+
+/* ── Update bar ── */
+.update-bar{height:44px;display:flex;align-items:center;gap:12px;padding:0 10px 0 18px;background:linear-gradient(90deg,#D7FF3C1f,#D7FF3C08 60%);border-bottom:1px solid #D7FF3C40;font-size:12.5px}
+.update-bar strong{font-weight:650}
+.update-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accent-wash)}
+.update-spacer{flex:1}
+.update-bar button{padding:6px 12px;font-size:12px}
+.update-bar .close{width:28px;height:28px;padding:0;background:none;border-color:transparent}
+body.update-shown .shell{height:calc(100vh - 58px - 44px)}
+.release-notes{white-space:pre-wrap;max-height:260px;overflow:auto;margin-top:8px;padding:12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--bg);font-size:12px;line-height:1.55;color:var(--soft)}
+#aboutDialog .checkline{margin-top:16px}
 
 /* ── Shell ── */
 .shell{height:calc(100vh - 58px);min-height:560px;display:grid;grid-template-columns:268px minmax(320px,1fr) 300px}

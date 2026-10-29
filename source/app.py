@@ -28,6 +28,7 @@ from psd_tools import PSDImage
 from psd_tools.api.layers import PixelLayer
 from packing import tga_bytes, pack_pnt, read_pnt, field
 import fastpreview
+import updater
 
 ROOT = Path(getattr(sys, '_MEIPASS', Path(__file__).parent))
 app = Flask(__name__, static_folder=str(ROOT/'static'))
@@ -565,7 +566,98 @@ def info():
 
 @app.get('/api/platform')
 def platform_info():
-    return jsonify(desktop=NATIVE_WINDOW is not None)
+    return jsonify(desktop=NATIVE_WINDOW is not None, version=updater.app_version(),
+                   updates=bool(updater.update_repo()))
+
+
+# -- updates --------------------------------------------------------------
+def settings_path():
+    return local_app_data()/APP_DATA_NAME/'settings.json'
+
+
+def load_settings():
+    try:
+        data = json.loads(settings_path().read_text(encoding='utf-8'))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_settings(changes):
+    data = load_settings() | changes
+    path = settings_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name+'.tmp')
+    temporary.write_text(json.dumps(data, indent=1), encoding='utf-8')
+    temporary.replace(path)
+    return data
+
+
+def updates_folder():
+    return local_app_data()/APP_DATA_NAME/'updates'
+
+
+@app.get('/api/update/check')
+def update_check():
+    settings = load_settings()
+    manual = request.args.get('manual') == '1'
+    if not manual and not settings.get('check_on_start', True):
+        return jsonify(enabled=bool(updater.update_repo()), current=updater.app_version(),
+                       available=False, check_on_start=False)
+    result = updater.check()
+    result['check_on_start'] = settings.get('check_on_start', True)
+    result['skipped'] = bool(result.get('available') and not manual and
+                             settings.get('skip_version') == result.get('latest'))
+    result['can_install'] = bool(result.get('signed') and getattr(sys, 'frozen', False) and os.name == 'nt')
+    result.pop('installer', None)
+    return jsonify(result)
+
+
+@app.post('/api/update/settings')
+def update_settings():
+    data = request.get_json() or {}
+    changes = {}
+    if 'check_on_start' in data:
+        changes['check_on_start'] = bool(data['check_on_start'])
+    if 'skip_version' in data:
+        changes['skip_version'] = str(data['skip_version'] or '')[:20]
+    return jsonify(save_settings(changes))
+
+
+@app.post('/api/update/open-page')
+def update_open_page():
+    result = updater.check()
+    page = result.get('page') or (f"https://github.com/{updater.update_repo()}/releases/latest" if updater.update_repo() else '')
+    if not page.startswith('https://github.com/'):
+        raise ValueError('No download page is available.')
+    webbrowser.open(page)
+    return jsonify(ok=True, page=page)
+
+
+@app.post('/api/update/install')
+def update_install():
+    if not (getattr(sys, 'frozen', False) and os.name == 'nt'):
+        raise ValueError('Updates install from the installed Windows app.')
+    result = updater.check()
+    info = result.get('installer')
+    if not (result.get('available') and result.get('signed') and info):
+        raise ValueError('This update is not signed, so it can only be downloaded from the release page.')
+    installer = updater.download(info, updates_folder())
+    target = Path(sys.executable).resolve().parent
+    flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+    subprocess.Popen([str(installer), '--update', '--target', str(target), '--wait-pid', str(os.getpid())],
+                     creationflags=flags, close_fds=True, cwd=str(installer.parent))
+
+    def close_for_update():
+        try:
+            if NATIVE_WINDOW is not None:
+                NATIVE_WINDOW.destroy()
+                return
+        except Exception:
+            logging.exception('Could not close the window for the update')
+        os._exit(0)
+    threading.Timer(1.5, close_for_update).start()
+    return jsonify(ok=True, version=result.get('latest'))
 
 
 @app.post('/api/heartbeat')
@@ -1293,6 +1385,7 @@ def main():
     parser.add_argument('--session-file')
     parser.add_argument('--state-file')
     args = parser.parse_args()
+    shutil.rmtree(updates_folder(), ignore_errors=True)
     if args.open:
         DOC = Document(args.open, Path(args.open).name)
         if args.state_file:

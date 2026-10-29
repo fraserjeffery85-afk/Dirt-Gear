@@ -8,11 +8,23 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import time
 import uuid
 from zipfile import ZipFile
 
 
 APP_NAME = 'Dirt Gear'
+
+
+def version() -> str:
+    root = Path(getattr(sys, '_MEIPASS', Path(__file__).parent))
+    for path in (root / 'VERSION.txt', root.parent / 'VERSION.txt'):
+        if path.is_file():
+            return path.read_text(encoding='utf-8').strip()
+    return ''
+
+
+TITLE = f'Dirt Gear v{version()} Setup' if version() else 'Dirt Gear Setup'
 
 
 def payload_path() -> Path:
@@ -85,7 +97,15 @@ def install(target: Path, make_shortcuts: bool = True) -> Path:
         if not executable.is_file() or not (stage / '_internal/static/app.js').is_file():
             raise ValueError('The installer payload is incomplete.')
         if target.exists():
-            target.rename(backup)
+            # Right after the app closes Windows can hold its files briefly.
+            for attempt in range(20):
+                try:
+                    target.rename(backup)
+                    break
+                except PermissionError:
+                    if attempt == 19:
+                        raise
+                    time.sleep(1)
             previous = True
         try:
             stage.rename(target)
@@ -115,7 +135,7 @@ def show_installer(target: Path, make_shortcuts: bool = True) -> bool:
     answer = user32.MessageBoxW(
         None,
         f'Install Dirt Gear for this Windows account?\n\nLocation:\n{target}\n\nNo administrator access is needed.',
-        'Dirt Gear v1.0 Setup', 0x00000004 | 0x00000020 | 0x00010000,
+        TITLE, 0x00000004 | 0x00000020 | 0x00010000,
     )
     if answer != 6:  # IDYES
         return True
@@ -123,11 +143,38 @@ def show_installer(target: Path, make_shortcuts: bool = True) -> bool:
         install(target, make_shortcuts=make_shortcuts)
     except Exception as error:
         user32.MessageBoxW(None, f'Dirt Gear could not be installed.\n\n{error}',
-                           'Dirt Gear v1.0 Setup', 0x00000010 | 0x00010000)
+                           TITLE, 0x00000010 | 0x00010000)
         return False
     user32.MessageBoxW(None, 'Dirt Gear is installed. Open it from your Desktop or Start menu.',
-                       'Dirt Gear v1.0 Setup', 0x00000040 | 0x00010000)
+                       TITLE, 0x00000040 | 0x00010000)
     return True
+
+
+def wait_for_process(pid: int, timeout_ms: int = 60000) -> None:
+    """Wait until the Dirt Gear process that started this update has exited."""
+    if os.name != 'nt' or pid <= 0:
+        return
+    kernel32 = ctypes.windll.kernel32
+    handle = kernel32.OpenProcess(0x00100000, False, pid)  # SYNCHRONIZE
+    if handle:
+        kernel32.WaitForSingleObject(handle, timeout_ms)
+        kernel32.CloseHandle(handle)
+    time.sleep(1)
+
+
+def run_update(target: Path, pid: int, launch: bool = True) -> None:
+    """Silent in-place update started by the app; reopens Dirt Gear afterwards."""
+    wait_for_process(pid)
+    try:
+        executable = install(target, make_shortcuts=False)
+    except Exception as error:
+        if os.name == 'nt':
+            ctypes.windll.user32.MessageBoxW(None, f'Dirt Gear could not be updated.\n\n{error}\n\n'
+                                             'Your previous version is still installed.', TITLE, 0x00000010 | 0x00010000)
+        raise SystemExit(1)
+    if launch:
+        subprocess.Popen([str(executable)], cwd=str(executable.parent),
+                         creationflags=0x00000008 | 0x00000200, close_fds=True)
 
 
 def main() -> None:
@@ -135,9 +182,14 @@ def main() -> None:
     parser.add_argument('--target', type=Path, help=argparse.SUPPRESS)
     parser.add_argument('--quiet', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--no-shortcuts', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--update', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--wait-pid', type=int, default=0, help=argparse.SUPPRESS)
+    parser.add_argument('--no-launch', action='store_true', help=argparse.SUPPRESS)
     args = parser.parse_args()
     target = args.target or Path(os.environ['LOCALAPPDATA']) / 'Programs/Dirt Gear'
-    if args.quiet:
+    if args.update:
+        run_update(target, args.wait_pid, launch=not args.no_launch)
+    elif args.quiet:
         print(install(target, make_shortcuts=not args.no_shortcuts))
     else:
         if not show_installer(target, make_shortcuts=not args.no_shortcuts):

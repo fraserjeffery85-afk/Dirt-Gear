@@ -205,7 +205,7 @@ $('installPnt').onclick=async()=>{const model=$('gameModel').value;if(!model)ret
 $('retryShading').onclick=()=>{proofFailedKey='';draw()};
 $('proofBtn').onclick=async()=>{await busy('Checking final rendering',async()=>{await api('render',getState());$('proofImage').src=url('preview/proof?v='+Date.now());$('proofDialog').showModal()})};$('closeProof').onclick=()=>$('proofDialog').close();
 $('busyDialog').addEventListener('cancel',e=>e.preventDefault());window.addEventListener('beforeunload',e=>{if(!desktop&&dirty){e.preventDefault();e.returnValue=''}});window.addEventListener('resize',resize);
-(async()=>{try{desktop=(await(await api('platform',undefined,'GET')).json()).desktop;await loadGameModels();try{await loadRecentProject()}catch(e){notify('Saved projects are unavailable: '+e.message,true)}const data=await(await api('document',undefined,'GET')).json();if(data)await acceptDoc(data)}catch(e){notify(e.message,true)}})();
+(async()=>{try{const platform=await(await api('platform',undefined,'GET')).json();desktop=platform.desktop;appVersion=platform.version||'';$('versionBtn').textContent='v'+appVersion;$('aboutVersion').textContent=appVersion;setTimeout(()=>checkUpdates(false),4000);await loadGameModels();try{await loadRecentProject()}catch(e){notify('Saved projects are unavailable: '+e.message,true)}const data=await(await api('document',undefined,'GET')).json();if(data)await acceptDoc(data)}catch(e){notify(e.message,true)}})();
 setInterval(()=>api('heartbeat',{}).catch(()=>{}),15000);
 function defaultTextColour(){
  try{const im=images.default;if(!im)return '#202020';const c=document.createElement('canvas');c.width=c.height=9;const g=c.getContext('2d');g.drawImage(im,im.naturalWidth*.45,im.naturalHeight*.45,im.naturalWidth*.1,im.naturalHeight*.1,0,0,9,9);const p=g.getImageData(0,0,9,9).data;let light=0;for(let i=0;i<p.length;i+=4)light+=p[i]*.2126+p[i+1]*.7152+p[i+2]*.0722;return light/81>115?'#202020':'#ffffff'}catch{return '#202020'}
@@ -341,3 +341,46 @@ async function renderLayouts(){
 $('openLayouts').onclick=async()=>{try{$('layoutName').value=$('gearName').value||'My logo layout';await renderLayouts();$('layoutDialog').showModal()}catch(e){notify(e.message,true)}};
 $('closeLayouts').onclick=()=>$('layoutDialog').close();
 $('saveLayout').onclick=async()=>{const button=$('saveLayout');button.disabled=true;try{await api('layouts',{name:$('layoutName').value,state:getState()});await renderLayouts();notify('Layout saved. Open another gear PSD and use Logo layouts → Apply.')}catch(e){notify(e.message,true)}finally{button.disabled=false}};
+
+// ── Updates (same flow as Optic and Moto Lines Studio) ──
+let appVersion='',updateInfo=null;
+function noteText(notes){return (notes||'').replace(/^#+\s*/gm,'').trim()||'See the release page for details.'}
+function showUpdate(info){
+ updateInfo=info;const ready=!!(info&&info.available);document.body.classList.toggle('update-ready',ready);
+ const show=ready&&!info.skipped&&!sessionStorageGet('dgHideUpdate'+info.latest);
+ $('updateBar').hidden=!show;document.body.classList.toggle('update-shown',show);
+ if(ready){
+  $('updateText').innerHTML='';const b=document.createElement('strong');b.textContent='Dirt Gear '+info.latest;$('updateText').append(b,' is available');
+  const label=info.can_install?'Download and install':'Open download page';$('updateInstall').textContent=label;$('aboutInstall').textContent=label;
+  $('aboutLatest').textContent=info.latest;$('aboutNotes').textContent=noteText(info.notes);
+ }
+ $('aboutNotesWrap').hidden=!ready;$('aboutInstall').hidden=!ready;
+ if(info)$('checkOnStart').checked=info.check_on_start!==false;
+ if(show)resize();
+}
+function sessionStorageGet(k){try{return sessionStorage.getItem(k)}catch{return null}}
+function sessionStorageSet(k,v){try{sessionStorage.setItem(k,v)}catch{}}
+async function checkUpdates(manual){
+ try{
+  if(manual)$('updateStatus').textContent='Checking GitHub…';
+  const info=await(await api('update/check'+(manual?'?manual=1':''),undefined,'GET')).json();
+  showUpdate(info);
+  if(manual)$('updateStatus').textContent=!info.enabled?'This copy wasn’t installed from a Dirt Gear release, so it doesn’t check for updates.':info.error?info.error:info.available?`Dirt Gear ${info.latest} is available. You have ${info.current}.`+(info.can_install?'':' This release opens its download page.'):`You’re up to date (${info.current}).`;
+ }catch(e){if(manual)$('updateStatus').textContent='Could not check for updates: '+e.message}
+}
+async function installUpdate(){
+ if(!updateInfo?.available)return;
+ if(!updateInfo.can_install){try{await api('update/open-page',{})}catch(e){notify(e.message,true)}return}
+ if(dirty&&!confirm('Dirt Gear restarts to update. Unsaved changes to this design will be lost — choose Cancel to save first.'))return;
+ $('aboutDialog').close();
+ const ok=await busy('Downloading Dirt Gear '+updateInfo.latest,async()=>{await api('update/install',{});return true},'Checking the download’s signature, then the installer takes over.');
+ if(ok){dirty=false;$('busyTitle').textContent='Installing update…';$('busyDetail').textContent='Dirt Gear will close and reopen in a moment.';$('busyDialog').showModal()}
+}
+$('updateInstall').onclick=installUpdate;$('aboutInstall').onclick=installUpdate;
+$('updateSkip').onclick=async()=>{if(!updateInfo)return;try{await api('update/settings',{skip_version:updateInfo.latest});updateInfo.skipped=true;showUpdate(updateInfo);notify('Skipped '+updateInfo.latest+'. Check for updates from the version button any time.')}catch(e){notify(e.message,true)}};
+$('updateClose').onclick=()=>{if(updateInfo)sessionStorageSet('dgHideUpdate'+updateInfo.latest,'1');showUpdate(updateInfo)};
+$('updateNotes').onclick=()=>{$('aboutDialog').showModal()};
+$('versionBtn').onclick=()=>{$('aboutDialog').showModal();checkUpdates(true)};
+$('closeAbout').onclick=()=>$('aboutDialog').close();
+$('checkNow').onclick=()=>checkUpdates(true);
+$('checkOnStart').onchange=async()=>{try{await api('update/settings',{check_on_start:$('checkOnStart').checked})}catch(e){notify(e.message,true)}};
