@@ -1,0 +1,73 @@
+name: Build & release
+
+# Builds the Windows installer on GitHub's Windows machines.
+# Push a tag like v1.0 (or run manually from the Actions tab) to publish a release.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r source/requirements.txt pyinstaller scipy scikit-image aggdraw
+
+      - name: Build app
+        run: python -m PyInstaller --noconfirm --distpath dist --workpath work "build/Dirt Gear.spec"
+
+      - name: Build payload
+        run: python build/build_payload.py
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION.txt).Trim()
+          python -m PyInstaller --noconfirm --onefile --windowed --name "Dirt Gear v$version Setup" `
+            --icon "$PWD\source\icon.ico" --add-data "$PWD\build\payload.zip;." `
+            --distpath release --workpath work\installer --specpath work\installer "$PWD\build\installer.py"
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Test the installed app
+        shell: pwsh
+        run: |
+          $t = "$env:RUNNER_TEMP\dg"
+          New-Item -ItemType Directory -Force "$t\fixtures", "$t\lad\Moto Gear\Logos" | Out-Null
+          # Clean install into a test folder
+          Start-Process -Wait -FilePath "release\Dirt Gear v$env:VERSION Setup.exe" -ArgumentList '--quiet','--no-shortcuts','--target',"$t\app"
+          if (-not (Test-Path "$t\app\Dirt Gear.exe")) { throw 'Installer did not produce Dirt Gear.exe' }
+          # Launch the installed copy headless with an isolated LOCALAPPDATA
+          $env:LOCALAPPDATA = "$t\lad"
+          Start-Process -FilePath "$t\app\Dirt Gear.exe" -ArgumentList '--no-browser','--session-file',"$t\session.json"
+          for ($i = 0; $i -lt 60 -and -not (Test-Path "$t\session.json"); $i++) { Start-Sleep 1 }
+          if (-not (Test-Path "$t\session.json")) { throw 'Installed app did not start' }
+          python tests/make_test_psd.py "$t\fixtures\test-gear.psd"
+          python tests/test_backend.py "$t"
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $notes = (Get-Content CHANGELOG.md -Raw) -split '\r?\n---\r?\n' | Select-Object -First 1
+          $notes | Out-File notes.md -Encoding utf8
+          gh release create "${{ github.ref_name }}" "release\Dirt Gear v$env:VERSION Setup.exe" --title "Dirt Gear v$env:VERSION" --notes-file notes.md
+
+      - name: Keep build as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dirt-Gear-Setup
+          path: release/*.exe

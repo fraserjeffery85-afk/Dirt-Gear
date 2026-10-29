@@ -1,6 +1,6 @@
 import json,urllib.request,io,sys,zipfile
 from pathlib import Path
-sys.path.insert(0,'/home/claude/dirt-gear/source')
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'source'))
 from packing import read_pnt
 from PIL import Image
 SP=Path(sys.argv[1]);c=json.loads((SP/'session.json').read_text());base=c['url'].split('/?')[0];tok=c['token']
@@ -33,5 +33,5 @@ re=req('project/reopen',{'id':rec['projects'][0]['id']});assert re['state']['art
 proj=raw('project/save',state).read();(SP/'legacy.motogear').write_bytes(proj)
 d2=upload('project/open',SP/'legacy.motogear');assert d2['state']['name']=='Dirt Test'
 root=Path(SP/'lad/Dirt Gear');print('library',sorted(p.name for p in root.iterdir()))
-assert (root/'imported-from-moto-gear.txt').exists()
+if (SP/'lad/Moto Gear').is_dir(): assert (root/'imported-from-moto-gear.txt').exists(), 'Moto Gear library was not copied'
 print('ALL PASS')
