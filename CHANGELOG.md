@@ -1,5 +1,10 @@
 # Dirt Gear releases
 
+## v1.0.3 — 2026-10-30
+
+- First signed release: if you have v1.0.2, this arrives through **Download and install** in the app.
+- Before publishing, the release build checks on Windows that an installed copy can update itself end to end.
+
 ## v1.0.2 — 2026-10-30
 
 - **Built-in updates**, the same as Optic and Moto Lines Studio. Dirt Gear checks GitHub on start and shows a bar when a new version is out: **Download and install** (signature and SHA-256 checked, closes, updates in place, reopens), **Skip this version**, or dismiss. *What's new* shows the release notes.
