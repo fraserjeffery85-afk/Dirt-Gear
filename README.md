@@ -37,7 +37,7 @@ Saved logos, logo layouts and HEX colour swatches work as they did in Moto Gear 
 
 ## Building (developers)
 
-Releases are built automatically: pushing a tag such as `v1.0` runs `.github/workflows/release.yml` on a GitHub Windows machine. It builds the app and installer, clean-installs it, runs the backend tests against the installed copy, and then publishes `Dirt Gear vX Setup.exe` on the Releases page.
+Releases are built automatically: changing `VERSION.txt` on main (or running the workflow from the Actions tab) runs `.github/workflows/release.yml` on a GitHub Windows machine. It builds the app and installer, clean-installs it, runs the backend tests against the installed copy, and then publishes `Dirt Gear vX Setup.exe` on the Releases page.
 
 To build locally instead:
 
