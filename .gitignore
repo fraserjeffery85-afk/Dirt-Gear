@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+dist/
+work/
+release/
+build/payload.zip
+*.psd
+*.tga
+*.pnt
+*.dirtgear
+*.motogear
+session.json

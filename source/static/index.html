@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dirt Gear</title><link rel="stylesheet" href="/static/style.css"><link rel="icon" href="/static/icon.svg"></head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></symbol>
+ <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/></symbol>
+ <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M8 3v5h7V3M7 21v-7h10v7"/></symbol>
+ <symbol id="i-export" viewBox="0 0 24 24"><path d="M12 15V3m0 0-4 4m4-4 4 4"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></symbol>
+ <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></symbol>
+ <symbol id="i-paste" viewBox="0 0 24 24"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="M9 11h6M9 15h4"/></symbol>
+ <symbol id="i-text" viewBox="0 0 24 24"><path d="M5 6V4h14v2M12 4v16m-3 0h6"/></symbol>
+ <symbol id="i-hash" viewBox="0 0 24 24"><path d="M5 9h14M5 15h14M10 4 8 20M16 4l-2 16"/></symbol>
+ <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z"/></symbol>
+ <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+ <symbol id="i-cube" viewBox="0 0 24 24"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></symbol>
+ <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol>
+ <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+ <symbol id="i-up" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></symbol>
+ <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+ <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></symbol>
+ <symbol id="i-bike" viewBox="0 0 24 24"><circle cx="5.5" cy="16.5" r="3.5"/><circle cx="18.5" cy="16.5" r="3.5"/><path d="M5.5 16.5 9 9h5l4.5 7.5M9 9 7.5 6H5m9 3 1.5-3H19"/></symbol>
+ <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+</svg>
+
+<header class="topbar">
+ <div class="brand"><img src="/static/icon.svg" alt="" class="brand-mark"><span class="wordmark">DIRT GEAR</span><span class="version">v1.0</span></div>
+ <div class="doc-pill" title="Current template"><span class="doc-dot"></span><strong id="fileName">No gear open</strong><span id="fileMeta">Open a PSD to begin</span></div>
+ <div class="top-actions">
+  <button id="openProject" class="ghost"><svg><use href="#i-file"/></svg>Open project</button>
+  <button id="openPsd" class="ghost"><svg><use href="#i-folder"/></svg>Open PSD</button>
+  <span class="divider"></span>
+  <button id="saveForLater" class="ghost" disabled><svg><use href="#i-save"/></svg>Save for later</button>
+  <button id="exportPnt" class="primary" disabled><svg><use href="#i-export"/></svg>Export .pnt</button>
+ </div>
+</header>
+
+<main class="shell">
+<aside class="left panel">
+ <div class="panel-head"><span>Layers</span><span class="head-note">Eye to show · hide</span></div>
+ <p class="layer-help">Drag <b>Your added layers</b> onto a PSD layer to sit your artwork beneath it — usually the shading.</p>
+ <div id="layers" class="layers"><div class="empty-note"><svg><use href="#i-grid"/></svg>Your template’s layers will appear here.</div></div>
+ <div id="artworkList" class="art-list left-art-list" hidden></div>
+ <div class="left-bottom"><span class="local-dot"></span>Everything stays on this computer</div>
+</aside>
+
+<section class="workspace">
+ <div class="canvas-toolbar">
+  <div class="segmented tabs" role="tablist" aria-label="Texture view"><button data-view="default" class="active" role="tab">Diffuse</button><button data-view="normal" role="tab">Norm</button><button data-view="spec" role="tab">Spec</button></div>
+  <button id="open3d" class="chip" disabled><svg><use href="#i-cube"/></svg>3D preview</button>
+  <div class="zoom-tools"><button id="zoomOut" aria-label="Zoom out">−</button><span id="zoomLabel">Fit</span><button id="zoomIn" aria-label="Zoom in">+</button><button id="fit" class="fit">Fit</button></div>
+ </div>
+ <div id="stage" class="stage">
+  <div id="empty" class="empty">
+   <div class="hero-mark" aria-hidden="true">DIRT<span>GEAR</span></div>
+   <h1>Your colours. Your number.<br><em>Ready to ride.</em></h1>
+   <p>Open a creator’s gear PSD, drop in your logos, name and number, then pack it straight into MX Bikes.</p>
+   <div class="empty-actions"><button id="startOpen" class="primary big"><svg><use href="#i-folder"/></svg>Open a PSD</button><button id="continueProject" class="ghost big" hidden>Continue last project</button></div>
+   <ol class="steps"><li><b>01</b>Open template</li><li><b>02</b>Add your artwork</li><li><b>03</b>Pack &amp; ride</li></ol>
+   <small>8-bit RGB PSD · up to 8192 × 8192 · Norm &amp; Spec handled for you</small>
+  </div>
+  <canvas id="canvas" hidden></canvas>
+ </div>
+ <div class="canvas-footer"><span class="status-dot"></span><span id="canvasStatus">Ready when you are</span><button id="retryShading" class="text-btn" hidden>Retry shading</button><button id="proofBtn" class="text-btn" disabled>Check final rendering</button><span id="coordinate">—</span></div>
+</section>
+
+<aside class="right panel">
+ <div class="right-scroll">
+ <section class="card">
+  <div class="card-head"><span>Add to your gear</span></div>
+  <div class="add-grid">
+   <button id="addArtwork" class="tile" disabled><svg><use href="#i-image"/></svg><span>Add logo or image</span></button>
+   <button id="pasteArtwork" class="tile" disabled><svg><use href="#i-paste"/></svg><span>Paste</span></button>
+   <button id="addName" class="tile" disabled><svg><use href="#i-text"/></svg><span>Name</span></button>
+   <button id="addNumber" class="tile" disabled><svg><use href="#i-hash"/></svg><span>Number</span></button>
+  </div>
+  <div class="lib-row"><button id="openLogoLibrary" disabled><svg><use href="#i-star"/></svg>Saved logos</button><button id="openLayouts" disabled><svg><use href="#i-grid"/></svg>Layouts</button></div>
+  <p class="hint add-hint">PNG · JPG · SVG · drag in · Ctrl+V</p>
+ </section>
+
+ <section id="transform" hidden class="card editor-card">
+  <div class="card-head"><span>Selected</span><button id="duplicate" class="icon-text"><svg><use href="#i-copy"/></svg>Duplicate</button></div>
+  <div class="btn-row"><button id="saveLogo"><svg><use href="#i-star"/></svg>Save to library</button><button id="editText" hidden><svg><use href="#i-text"/></svg>Edit text</button></div>
+  <div id="textStretch" hidden><label class="range-label">Text width <output id="textWidthValue">100%</output><input id="textWidth" type="range" min="20" max="500" value="100"></label></div>
+  <label class="range-label">Rotation <output id="rotationValue">0°</output><input id="rotation" type="range" min="-180" max="180" value="0"></label>
+  <label class="range-label">Opacity <output id="opacityValue">100%</output><input id="opacity" type="range" min="0" max="100" value="100"></label>
+  <details class="advanced-controls"><summary>Position, size &amp; more</summary>
+   <div class="fields"><label>X<input id="posX" type="number" step="1"></label><label>Y<input id="posY" type="number" step="1"></label><label>W<input id="artWidth" type="number" min="1" step="1"></label><label>H<input id="artHeight" type="number" min="1" step="1"></label></div>
+   <label class="checkline"><input id="lockRatio" type="checkbox" checked> Keep proportions</label>
+   <label class="checkline"><input id="snapRotation" type="checkbox" checked> Snap rotation to 15°</label>
+   <div class="minor-actions"><button id="rotateLeft" type="button">−90°</button><button id="rotateReset" type="button">0°</button><button id="rotateRight" type="button">+90°</button></div>
+   <label class="checkline"><input id="colorizeArtwork" type="checkbox"> Tint with one colour</label>
+   <button id="removeWhite" type="button" class="full">Remove white background</button>
+   <p class="hint">For pasted art with a white box around it.</p>
+  </details>
+  <div id="artActions" hidden class="minor-actions art-actions"><button id="sendBack"><svg><use href="#i-down"/></svg>Down</button><button id="bringFront"><svg><use href="#i-up"/></svg>Up</button><button id="deleteArt" class="danger"><svg><use href="#i-trash"/></svg>Remove</button></div>
+  <p class="hint kbd-hint"><kbd>Shift</kbd> stretch · <kbd>Alt</kbd>-drag pan · <kbd>Del</kbd> remove</p>
+ </section>
+
+ <details class="card palette-panel"><summary>Saved colours <span>HEX</span></summary>
+  <div class="colour-entry"><input id="artColorPicker" type="color" value="#ffffff" aria-label="Choose colour"><input id="artColorHex" type="text" value="#FFFFFF" maxlength="7" spellcheck="false" aria-label="Hex colour code" placeholder="#FFFFFF"><button id="saveSwatch" type="button">Save</button></div>
+  <div id="swatches" class="swatches"><span class="hint">Saved colours appear here.</span></div>
+ </details>
+ </div>
+
+ <section class="export-panel">
+  <div class="card-head"><span>Finish &amp; ride</span><span class="badge">MX BIKES</span></div>
+  <label class="name-label">Gear name<input id="gearName" placeholder="My custom gear" maxlength="99"></label>
+  <label class="name-label">Rider model<select id="gameModel"><option value="">Looking for rider models…</option></select></label>
+  <button id="installPnt" class="primary full" disabled><svg><use href="#i-bike"/></svg>Pack &amp; install in MX Bikes</button>
+  <div class="btn-row"><button id="exportTga" disabled>3 TGAs (.zip)</button><button id="saveProject" disabled>Portable project</button></div>
+  <p class="export-note"><svg><use href="#i-check"/></svg>Diffuse, Norm &amp; Spec packed automatically · black alpha on Norm/Spec</p>
+ </section>
+</aside>
+</main>
+
+<div id="toast" role="status" hidden></div>
+<dialog id="busyDialog"><div class="spinner"></div><h2 id="busyTitle">Preparing your gear</h2><p id="busyDetail">Large PSDs can take a moment.</p><progress></progress></dialog>
+<dialog id="proofDialog" class="wide"><div class="dialog-heading"><div><div class="eyebrow">Export preview</div><h2>Final rendering</h2></div><button id="closeProof" class="close" aria-label="Close">×</button></div><p>The same PSD rendering used for your exported diffuse texture.</p><img id="proofImage" alt="Final gear texture rendering"></dialog>
+<dialog id="textDialog"><form method="dialog"><div class="dialog-heading"><div><div class="eyebrow">Rider details</div><h2 id="textTitle">Add your name.</h2></div><button value="cancel" class="close" aria-label="Close">×</button></div>
+ <div class="font-preview"><img id="fontPreviewImage" alt="Selected font preview" hidden><span id="fontPreviewStatus" role="status">Choose a font to preview</span></div>
+ <div class="text-grid">
+  <label class="span2">Name or number<textarea id="textValue" rows="1" maxlength="200" placeholder="YOUR NAME"></textarea></label>
+  <label class="span2">Font<select id="fontSelect"></select><small>BYD and MX fonts included · installed fonts also listed</small></label>
+  <label>Size (px)<input id="fontSize" type="number" min="8" max="1600" value="240"></label>
+  <label>Fill<input id="textFill" type="color" value="#ffffff"></label>
+  <label>Outline (px)<input id="textStroke" type="number" min="0" max="80" value="0"></label>
+  <label>Outline colour<input id="textOutline" type="color" value="#000000"></label>
+ </div>
+ <div class="text-palette"><span class="muted">Saved colours</span><div id="textSwatches" class="swatches"></div></div>
+ <label class="checkline"><input id="useGradient" type="checkbox"> Gradient fill</label>
+ <div id="gradientOptions" hidden><div class="gradient-stops"><label>Start<input id="gradientStart" type="color" value="#ff4020"><div id="gradientStartSwatches" class="swatches" aria-label="Saved colours for gradient start"></div><button type="button" data-sample="gradientStart">Pick from gear</button></label><label>End<input id="gradientEnd" type="color" value="#ffd020"><div id="gradientEndSwatches" class="swatches" aria-label="Saved colours for gradient end"></div><button type="button" data-sample="gradientEnd">Pick from gear</button></label></div><label>Direction<select id="gradientAngle"><option value="0">Left to right</option><option value="90" selected>Top to bottom</option><option value="45">Diagonal ↘</option><option value="135">Diagonal ↙</option><option value="180">Right to left</option><option value="270">Bottom to top</option></select></label></div>
+ <div class="dialog-footer"><button value="cancel">Cancel</button><button id="applyText" type="button" class="primary">Add to gear</button></div></form></dialog>
+<dialog id="viewerDialog" class="wide"><div class="dialog-heading"><div><div class="eyebrow">On the rider</div><h2>3D preview</h2></div><button id="close3d" class="close" aria-label="Close 3D preview">×</button></div><p>Drag to rotate · scroll to zoom · Shift- or right-drag to pan. Studio lighting — in-game lighting will differ.</p><canvas id="riderCanvas" aria-label="3D rider wearing your gear"></canvas><div class="viewer-bar"><div class="viewer-materials"><label class="checkline"><input id="riderNormals" type="checkbox" checked> Normal detail</label><label class="checkline"><input id="riderReflections" type="checkbox" checked> Reflections</label></div><div class="viewer-controls"><button id="riderFront">Front</button><button id="riderBack">Back</button><button id="riderPan" aria-pressed="false">Pan</button><button id="riderUp" aria-label="Move rider up">↑</button><button id="riderDown" aria-label="Move rider down">↓</button><button id="riderReset">Reset</button></div></div><span id="viewerStatus" role="status"></span></dialog>
+<dialog id="logoDialog"><div class="dialog-heading"><div><div class="eyebrow">Library</div><h2>Saved logos</h2></div><button id="closeLogos" class="close" aria-label="Close saved logos">×</button></div><p>Click a logo to add it to this project. Saved on this PC.</p><div id="logoLibrary"></div></dialog>
+<dialog id="layoutDialog"><div class="dialog-heading"><div><div class="eyebrow">Library</div><h2>Logo layouts</h2></div><button id="closeLayouts" class="close" aria-label="Close layouts">×</button></div><p>Save every added logo, name and number as a set, then apply it to another template with positions, sizes and order kept. Works best with matching UV layouts.</p><div class="layout-save"><input id="layoutName" maxlength="100" aria-label="Layout name" placeholder="Team race layout"><button id="saveLayout" type="button" class="primary">Save current</button></div><div id="layoutLibrary"></div><p class="hint">Template artwork isn’t included. Applied layers stay editable and sit at this template’s chosen shading position.</p></dialog>
+<input id="psdInput" type="file" accept=".psd" hidden><input id="projectInput" type="file" accept=".dirtgear,.motogear" hidden><input id="artInput" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" multiple hidden>
+<script src="/static/viewer.js"></script><script src="/static/app.js"></script></body></html>

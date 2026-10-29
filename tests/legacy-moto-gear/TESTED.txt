@@ -1,0 +1,12 @@
+Moto Gear v1.3 — 23 October 2026
+
+Passed:
+- Source layout save/list/apply/delete with independent artwork copies, proportional position/dimension transfer, colour/rotation/opacity and target shading preservation.
+- Editable gradient text survives layout transfer and project save/reopen.
+- JavaScript syntax check.
+- Packaged executable startup and HTTP tests: bundled font selection, gradient text creation, persisted layout save/apply/delete.
+- Single-file installer clean extraction; installed executable, HTML and JavaScript hashes match the build; VERSION.txt is 1.3.
+
+Not completed: visual browser verification of the new controls. The test browser failed to launch in the sandbox and the in-app browser could not connect to the initial restricted test server. Core tests above passed after allowing localhost access.
+
+The unchanged 3D/PNT features retain the prior release's testing history; they were not fully retested in this release.
