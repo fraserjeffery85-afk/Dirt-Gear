@@ -1,5 +1,32 @@
 # Dirt Gear releases
 
+## v1.0.6 — 2026-10-30
+
+**Dirt Gear: everything new since Moto Gear v1.3**
+
+**New look**
+- Renamed to Dirt Gear, with a new logo and a cleaner dark interface.
+- Layer eye/lock icons and SHADE / NORM / SPEC / ART tags. Finish & ride stays pinned at the bottom.
+
+**Much faster**
+- New fast preview renderer: layer toggles take about 1–3 s and logo/name moves under 1 s, where they used to take ~80 s on big 4K PSDs.
+- Layer clicks no longer freeze the app. Rapid clicks are batched.
+- Layer effects (pattern/colour/gradient overlays, strokes) stay fast.
+- Exports and Check final rendering still use the exact full-quality render.
+
+**Better results**
+- Logos, names and numbers go under the shading on more PSDs, including combined "SHADING/NORM" groups. You get a warning if no shading layer is found.
+- New **letter spacing** slider for names and numbers.
+
+**Updates built in**
+- Dirt Gear checks for new versions on launch: **Download and install**, **Skip this version**, or see What's new. Updates are signed and checked before installing.
+
+**Fixes**
+- Layers not switching off, or the canvas going blank or white, when toggling layers.
+- Two-line text failing with newer Pillow versions.
+
+**Kept from Moto Gear:** PSD colourways, logos/names/numbers, gradients, saved logos and layouts, 3D preview, .pnt/TGA export with black Norm/Spec alpha, and Pack & install into MX Bikes. Your Moto Gear projects, logos and layouts are copied across on first launch, and `.motogear` files still open.
+
 ## v1.0.5 — 2026-10-30
 
 - **Letter spacing for names and numbers:** a new slider in the Add/Edit text dialog, from −50% (tighter) to +100% (wider), with live preview. The font's own kerning is kept, so a 6 still tucks under a 7, and spacing is applied on top. Outlines stay behind the letters even when they overlap. Gradients and two-line text work too. Double-click the slider to reset to 0%.
