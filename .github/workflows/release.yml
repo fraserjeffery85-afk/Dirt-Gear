@@ -36,6 +36,9 @@ jobs:
       - name: Layer toggle regression tests
         run: python tests/test_toggle_regressions.py
 
+      - name: Letter spacing tests
+        run: python tests/test_letter_spacing.py
+
       - name: Build app
         env:
           REPO: ${{ github.repository }}

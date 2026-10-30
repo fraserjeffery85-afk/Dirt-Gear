@@ -1,5 +1,12 @@
 # Dirt Gear releases
 
+## v1.0.5 — 2026-10-30
+
+- **Letter spacing for names and numbers:** a new slider in the Add/Edit text dialog, from −50% (tighter) to +100% (wider), with live preview. The font's own kerning is kept, so a 6 still tucks under a 7, and spacing is applied on top. Outlines stay behind the letters even when they overlap. Gradients and two-line text work too. Double-click the slider to reset to 0%.
+- Spacing is saved with the layer and kept by **Edit text**, saved projects and logo layouts.
+- At 0% text renders exactly as before.
+- Two-line text no longer fails with newer Pillow versions.
+
 ## v1.0.4 — 2026-10-30
 
 Fixes for layers not switching off and the canvas going blank.

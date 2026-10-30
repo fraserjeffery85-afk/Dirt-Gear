@@ -23,7 +23,7 @@
 </svg>
 
 <header class="topbar">
- <div class="brand"><img src="/static/icon.svg" alt="" class="brand-mark"><span class="wordmark">DIRT GEAR</span><button id="versionBtn" class="version" title="About &amp; updates">v1.0.4</button></div>
+ <div class="brand"><img src="/static/icon.svg" alt="" class="brand-mark"><span class="wordmark">DIRT GEAR</span><button id="versionBtn" class="version" title="About &amp; updates">v1.0.5</button></div>
  <div class="doc-pill" title="Current template"><span class="doc-dot"></span><strong id="fileName">No gear open</strong><span id="fileMeta">Open a PSD to begin</span></div>
  <div class="top-actions">
   <button id="openProject" class="ghost"><svg><use href="#i-file"/></svg>Open project</button>
@@ -126,6 +126,7 @@
   <label>Fill<input id="textFill" type="color" value="#ffffff"></label>
   <label>Outline (px)<input id="textStroke" type="number" min="0" max="80" value="0"></label>
   <label>Outline colour<input id="textOutline" type="color" value="#000000"></label>
+  <label class="tracking-label">Letter spacing <output id="trackingValue">0%</output><input id="textTracking" type="range" min="-50" max="100" step="1" value="0" title="Double-click to reset"></label>
  </div>
  <div class="text-palette"><span class="muted">Saved colours</span><div id="textSwatches" class="swatches"></div></div>
  <label class="checkline"><input id="useGradient" type="checkbox"> Gradient fill</label>

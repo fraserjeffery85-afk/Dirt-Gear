@@ -212,7 +212,7 @@ function defaultTextColour(){
  try{const im=images.default;if(!im)return '#202020';const c=document.createElement('canvas');c.width=c.height=9;const g=c.getContext('2d');g.drawImage(im,im.naturalWidth*.45,im.naturalHeight*.45,im.naturalWidth*.1,im.naturalHeight*.1,0,0,9,9);const p=g.getImageData(0,0,9,9).data;let light=0;for(let i=0;i<p.length;i+=4)light+=p[i]*.2126+p[i+1]*.7152+p[i+2]*.0722;return light/81>115?'#202020':'#ffffff'}catch{return '#202020'}
 }
 let fontPreviewTimer, fontPreviewVersion=0, fontPreviewUrl=null;
-function textSettings(){return {value:$('textValue').value,font:$('fontSelect').value,size:Number($('fontSize').value),fill:$('textFill').value,stroke:Number($('textStroke').value),outline:$('textOutline').value,gradient:$('useGradient').checked?{start:$('gradientStart').value,end:$('gradientEnd').value,angle:Number($('gradientAngle').value)}:null}}
+function textSettings(){return {value:$('textValue').value,font:$('fontSelect').value,size:Number($('fontSize').value),tracking:Number($('textTracking').value),fill:$('textFill').value,stroke:Number($('textStroke').value),outline:$('textOutline').value,gradient:$('useGradient').checked?{start:$('gradientStart').value,end:$('gradientEnd').value,angle:Number($('gradientAngle').value)}:null}}
 function clearFontPreview(){
  clearTimeout(fontPreviewTimer);fontPreviewVersion++;
  $('fontPreviewImage').hidden=true;$('fontPreviewImage').removeAttribute('src');
@@ -236,7 +236,7 @@ function queueFontPreview(){
   }catch(e){if(version===fontPreviewVersion){status.textContent=e.message;status.hidden=false}}
  },150);
 }
-for(const id of ['textValue','fontSelect','fontSize','textFill','textStroke','textOutline','useGradient','gradientStart','gradientEnd','gradientAngle'])$(id).addEventListener('input',queueFontPreview);
+for(const id of ['textValue','fontSelect','fontSize','textTracking','textFill','textStroke','textOutline','useGradient','gradientStart','gradientEnd','gradientAngle'])$(id).addEventListener('input',queueFontPreview);
 $('textDialog').addEventListener('close',clearFontPreview);
 async function showText(kind='name',edit=false){
  try{if(!fonts.length)fonts=await(await api('fonts',undefined,'GET')).json();
@@ -245,12 +245,12 @@ async function showText(kind='name',edit=false){
  const preferred=fonts.find(f=>f.id.toLowerCase().includes(`byd-${kind==='number'?'number':'name'}-font-stock`))||fonts.find(f=>/arialbd/i.test(f.id))||fonts[0];
  const t=a?.text||{value:kind==='number'?'76':'YOUR NAME',font:preferred?.id,size:kind==='number'?500:240,fill:defaultTextColour(),stroke:0,outline:'#000000'};
  $('textValue').value=t.value;picker.value=t.font;if(!picker.value&&preferred)picker.value=preferred.id;
- $('fontSize').value=t.size;$('textFill').value=t.fill;$('textStroke').value=t.stroke;$('textOutline').value=t.outline;$('useGradient').checked=!!t.gradient;$('gradientStart').value=t.gradient?.start||t.fill;$('gradientEnd').value=t.gradient?.end||'#ffffff';$('gradientAngle').value=String(t.gradient?.angle??90);
+ $('fontSize').value=t.size;$('textTracking').value=t.tracking||0;$('trackingValue').textContent=(t.tracking||0)+'%';$('textFill').value=t.fill;$('textStroke').value=t.stroke;$('textOutline').value=t.outline;$('useGradient').checked=!!t.gradient;$('gradientStart').value=t.gradient?.start||t.fill;$('gradientEnd').value=t.gradient?.end||'#ffffff';$('gradientAngle').value=String(t.gradient?.angle??90);
  $('textTitle').textContent=edit?'Edit your rider details.':kind==='number'?'Add your race number.':'Add your name.';$('applyText').textContent=edit?'Update text':'Add to gear';renderSwatches();$('textDialog').showModal();queueFontPreview();
  }catch(e){notify(e.message,true)}
 }
 $('addName').onclick=()=>showText('name');$('addNumber').onclick=()=>showText('number');$('editText').onclick=()=>showText('name',true);
-$('applyText').onclick=async()=>{const settings={value:$('textValue').value,font:$('fontSelect').value,size:Number($('fontSize').value),fill:$('textFill').value,stroke:Number($('textStroke').value),outline:$('textOutline').value,gradient:$('useGradient').checked?{start:$('gradientStart').value,end:$('gradientEnd').value,angle:Number($('gradientAngle').value)}:null};if(!settings.value.trim()){notify('Enter a name or number.',true);return}
+$('applyText').onclick=async()=>{const settings={value:$('textValue').value,font:$('fontSelect').value,size:Number($('fontSize').value),tracking:Number($('textTracking').value),fill:$('textFill').value,stroke:Number($('textStroke').value),outline:$('textOutline').value,gradient:$('useGradient').checked?{start:$('gradientStart').value,end:$('gradientEnd').value,angle:Number($('gradientAngle').value)}:null};if(!settings.value.trim()){notify('Enter a name or number.',true);return}
  $('textDialog').close();await busy('Creating your text',async()=>{const item=await(await api('text',settings)).json();const old=state.artworks.find(a=>a.id===editingText);if(old){snapshot();const previousWidth=old.text?.base_width||assetImages[old.asset]?.naturalWidth||old.width,previousHeight=old.text?.base_height||assetImages[old.asset]?.naturalHeight||old.height;const widthScale=old.width/previousWidth,heightScale=old.height/previousHeight;assetImages[item.id]=await imageLoad(url('artwork/'+item.id));old.asset=item.id;old.name=item.name;old.text=item.text;old.width=Math.max(1,Math.min(16384,item.width*widthScale));old.height=Math.max(1,Math.min(16384,item.height*heightScale));selected=old.id;}else{await addAsset(item);const art=current();art.text=item.text;art.width=item.width;art.height=item.height;}
  rememberColor(settings.fill);if(settings.gradient){rememberColor(settings.gradient.start);rememberColor(settings.gradient.end)}if(settings.stroke>0)rememberColor(settings.outline);lastFieldSelection=null;renderArtList();draw();},'Rendering your selected font locally.');};
 
@@ -385,3 +385,6 @@ $('versionBtn').onclick=()=>{$('aboutDialog').showModal();checkUpdates(true)};
 $('closeAbout').onclick=()=>$('aboutDialog').close();
 $('checkNow').onclick=()=>checkUpdates(true);
 $('checkOnStart').onchange=async()=>{try{await api('update/settings',{check_on_start:$('checkOnStart').checked})}catch(e){notify(e.message,true)}};
+
+$('textTracking').addEventListener('input',()=>{$('trackingValue').textContent=$('textTracking').value+'%'});
+$('textTracking').addEventListener('dblclick',()=>{$('textTracking').value=0;$('trackingValue').textContent='0%';queueFontPreview()});

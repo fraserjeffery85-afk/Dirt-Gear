@@ -742,6 +742,43 @@ def fonts():
                           key=lambda f:(not f['byd'],f['label'].lower())))
 
 
+def text_tracking(settings):
+    """Letter spacing as a percentage of the font size (-50 to 200; 0 = font default)."""
+    try:
+        value = float(settings.get('tracking', 0) or 0)
+    except (TypeError, ValueError):
+        raise ValueError('Letter spacing must be a number.')
+    if not math.isfinite(value) or not -50 <= value <= 200:
+        raise ValueError('Letter spacing must be between -50% and 200%.')
+    return value
+
+
+def _tracked_layout(value, font, stroke, spacing, tracking_px):
+    """Character positions for centred multi-line text with extra spacing.
+
+    Each character sits where the font itself places it in the line (so pair
+    kerning like a 6 tucked under a 7 is kept) plus the extra spacing."""
+    probe = ImageDraw.Draw(Image.new('RGBA', (1, 1)))
+    line_height = probe.textbbox((0, 0), 'A', font=font, stroke_width=stroke)[3] + stroke + spacing
+    lines = value.split('\n')
+    widths = [font.getlength(line) + tracking_px * max(0, len(line) - 1) for line in lines]
+    widest = max(widths) if widths else 0
+    glyphs = []
+    for row, line in enumerate(lines):
+        x0 = (widest - widths[row]) / 2
+        for i, ch in enumerate(line):
+            if ch.strip():
+                # Position inside the full line, kerning with the previous
+                # character included, then the extra spacing on top.
+                x = font.getlength(line[:i + 1]) - font.getlength(ch)
+                glyphs.append((x0 + x + tracking_px * i, row * line_height, ch))
+    if not glyphs:
+        raise ValueError('Enter a name or number.')
+    boxes = [probe.textbbox((x, y), ch, font=font, stroke_width=stroke) for x, y, ch in glyphs]
+    bounds = (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
+    return glyphs, bounds
+
+
 def render_text_bitmap(settings, scale=1):
     fontinfo = installed_fonts().get(settings.get('font'))
     if fontinfo is None:
@@ -751,17 +788,42 @@ def render_text_bitmap(settings, scale=1):
     font = ImageFont.truetype(fontinfo['path'], size)
     value = settings['value']
     spacing = round(size*.12)
-    bounds = ImageDraw.Draw(Image.new('RGBA',(1,1))).multiline_textbbox((0,0),value,font=font,stroke_width=stroke,spacing=spacing,align='center')
+    tracking = text_tracking(settings)
+    tracking_px = size * tracking / 100
+    fill_colour = ImageColor.getrgb(settings.get('fill','#ffffff'))
+    outline_colour = ImageColor.getrgb(settings.get('outline','#000000'))
+    gradient = settings.get('gradient')
     margin = max(4,round(4*scale))
-    width,height=bounds[2]-bounds[0]+2*margin,bounds[3]-bounds[1]+2*margin
+    if tracking == 0:
+        bounds = ImageDraw.Draw(Image.new('RGBA',(1,1))).multiline_textbbox((0,0),value,font=font,stroke_width=stroke,spacing=spacing,align='center')
+    else:
+        glyphs, bounds = _tracked_layout(value, font, stroke, spacing, tracking_px)
+    width,height=math.ceil(bounds[2]-bounds[0])+2*margin,math.ceil(bounds[3]-bounds[1])+2*margin
     if width*height>64*1024*1024 or max(width,height)>16384:
         raise ValueError('Text is too large. Reduce its size or length.')
     im=Image.new('RGBA',(width,height))
-    ImageDraw.Draw(im).multiline_text((margin-bounds[0],margin-bounds[1]),value,font=font,
-                                      fill=(0,0,0,0) if settings.get('gradient') else ImageColor.getrgb(settings.get('fill','#ffffff')),stroke_width=stroke,
-                                      stroke_fill=ImageColor.getrgb(settings.get('outline','#000000')),
-                                      spacing=spacing,align='center')
-    gradient = settings.get('gradient')
+    ox, oy = margin-bounds[0], margin-bounds[1]
+
+    def draw_text(target, fill, with_stroke):
+        draw = ImageDraw.Draw(target)
+        if tracking == 0:
+            draw.multiline_text((ox, oy), value, font=font, fill=fill,
+                                stroke_width=stroke if with_stroke else 0, stroke_fill=outline_colour,
+                                spacing=spacing, align='center')
+            return
+        for x, y, ch in glyphs:
+            draw.text((ox + x, oy + y), ch, font=font, fill=fill,
+                      stroke_width=stroke if with_stroke else 0, stroke_fill=outline_colour)
+
+    if tracking == 0:
+        draw_text(im, (0,0,0,0) if gradient else fill_colour, True)
+    else:
+        # Outlines first, then fills, so tight spacing never lets one letter's
+        # outline cover the next letter's fill.
+        if stroke:
+            draw_text(im, outline_colour, True)
+        if not gradient:
+            draw_text(im, fill_colour, False)
     if gradient:
         start = np.array(ImageColor.getrgb(gradient['start']), dtype=np.float32)
         end = np.array(ImageColor.getrgb(gradient['end']), dtype=np.float32)
@@ -775,8 +837,7 @@ def render_text_bitmap(settings, scale=1):
         colours = np.rint(start + t[..., None]*(end-start)).astype(np.uint8)
         fill = Image.fromarray(colours, 'RGB').convert('RGBA')
         mask = Image.new('L', im.size)
-        ImageDraw.Draw(mask).multiline_text((margin-bounds[0],margin-bounds[1]), value,
-            font=font, fill=255, spacing=spacing, align='center')
+        draw_text(mask, 255, False)
         fill.putalpha(mask)
         im.alpha_composite(fill)
     return im
@@ -791,7 +852,7 @@ def text_preview():
     size, stroke = int(settings.get('size', 240)), int(settings.get('stroke', 0))
     if not 8 <= size <= 1600 or not 0 <= stroke <= 80:
         raise ValueError('Text size must be 8–1600, outline 0–80.')
-    settings.update(value=value, size=size, stroke=stroke)
+    settings.update(value=value, size=size, stroke=stroke, tracking=text_tracking(settings))
     # Bound raster work independently of the eventual full-resolution artwork.
     preview = render_text_bitmap(settings, min(1, 96 / size))
     preview.thumbnail((960, 280), Image.Resampling.LANCZOS)
@@ -811,6 +872,7 @@ def text_art():
         if not 8<=size<=1600 or not 0<=stroke<=80:
             raise ValueError('Text size must be 8–1600, outline 0–80.')
         settings['size'],settings['stroke'],settings['value']=size,stroke,value
+        settings['tracking'] = text_tracking(settings)
         logical = render_text_bitmap(settings)
         max_side=max(logical.size)
         scale=min(4, max(require_doc().psd.size)/max_side, (32*1024*1024/(logical.width*logical.height))**.5)
@@ -821,7 +883,8 @@ def text_art():
         result={'id':key,'name':name,'width':logical.width,'height':logical.height}
         result['text']={'value':value,'font':settings['font'],'size':size,'stroke':stroke,
                         'fill':settings.get('fill','#ffffff'),'outline':settings.get('outline','#000000'),
-                        'base_width':logical.width,'base_height':logical.height, 'gradient':settings.get('gradient')}
+                        'base_width':logical.width,'base_height':logical.height, 'gradient':settings.get('gradient'),
+                        'tracking':settings['tracking']}
         return jsonify(result)
 
 
