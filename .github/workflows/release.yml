@@ -141,6 +141,14 @@ jobs:
           $files = @("release\Dirt-Gear-Setup-$env:VERSION.exe", 'release\update.json')
           if (Test-Path 'release\update.json.sig') { $files += 'release\update.json.sig' }
           gh release create $tag @files --target $env:GITHUB_SHA --title "Dirt Gear v$env:VERSION" --notes-file notes.md
+          "RELEASE_CREATED=true" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Announce on Discord
+        if: env.RELEASE_CREATED == 'true'
+        continue-on-error: true
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: python tools/discord_notify.py "${{ env.VERSION }}" notes.md "https://github.com/${{ github.repository }}/releases/tag/v${{ env.VERSION }}"
 
       - name: Keep build as artifact
         uses: actions/upload-artifact@v4

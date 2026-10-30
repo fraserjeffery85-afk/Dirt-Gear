@@ -1,0 +1,24 @@
+name: Announce latest release on Discord
+
+# Re-post the latest release (with its notes) to Discord:
+# Actions -> "Announce latest release on Discord" -> Run workflow.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  announce:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Post to Discord
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then echo "Add the DISCORD_WEBHOOK secret first."; exit 1; fi
+          gh release view --json tagName,body,url > release.json
+          python3 -c "import json;r=json.load(open('release.json'));open('notes.md','w').write(r['body']);print(r['tagName'].lstrip('v'));print(r['url'])" > info.txt
+          python3 tools/discord_notify.py "$(sed -n 1p info.txt)" notes.md "$(sed -n 2p info.txt)"

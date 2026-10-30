@@ -29,3 +29,13 @@ You can also start the action by hand: *Actions → Build & release → Run work
 - Downloads go to `%LOCALAPPDATA%\Dirt Gear\updates` and are deleted the next time Dirt Gear starts.
 - The installer runs in update mode (`--update`). It waits for Dirt Gear to close, swaps the program folder with a backup (rolling back if anything fails) and reopens Dirt Gear.
 - If you have unsaved changes, Dirt Gear asks before restarting.
+
+## Discord announcements
+
+When a release is published, the release workflow posts it to Discord with the full release notes, the Dirt Gear logo and a download link.
+
+1. In Discord: *Server Settings → Integrations → Webhooks → New Webhook*, pick the channel, then *Copy Webhook URL*.
+2. In GitHub: *Settings → Secrets and variables → Actions → New repository secret*. Name it `DISCORD_WEBHOOK` and paste the URL. A URL ending in `/github` works too.
+3. If you also added a GitHub repository webhook (*Settings → Webhooks*) pointing at Discord, delete it, or every release posts twice.
+
+To post the latest release again, go to *Actions → Announce latest release on Discord → Run workflow*. Without the secret, releases still publish and the post is skipped.
