@@ -1,10 +1,10 @@
-# Dirt Gear v1.0.6
+# Dirt Gear v1.0.7
 
 A local Windows editor for MX Bikes rider gear. Open a creator's gear PSD, choose colourways, add your logos, name and number beneath the shading, check it on the 3D rider, and pack a game-ready paint. No Photoshop, PaintHub or PaintEd needed. Dirt Gear is the successor to Moto Gear v1.3.
 
 ## Install
 
-Run **Dirt-Gear-Setup-1.0.6.exe** and choose **Yes**. It installs for your Windows account (no admin needed) and adds Desktop and Start menu shortcuts. Microsoft Edge WebView2 Runtime is required (already on Windows 10/11 in most cases).
+Run **Dirt-Gear-Setup-1.0.7.exe** and choose **Yes**. It installs for your Windows account (no admin needed) and adds Desktop and Start menu shortcuts. Microsoft Edge WebView2 Runtime is required (already on Windows 10/11 in most cases).
 
 If you used Moto Gear, your saved projects, logos and layouts are copied into Dirt Gear the first time it opens. Moto Gear's own folder isn't changed, so both apps can live side by side.
 
@@ -51,7 +51,7 @@ Requires Windows and Python 3.12. From this folder:
 powershell -ExecutionPolicy Bypass -File build\build.ps1
 ```
 
-This creates a `.venv`, builds `dist\Dirt Gear\`, then `release\Dirt-Gear-Setup-1.0.6.exe`. To run from source instead: `pip install -r source\requirements.txt` then `python source\app.py`.
+This creates a `.venv`, builds `dist\Dirt Gear\`, then `release\Dirt-Gear-Setup-1.0.7.exe`. To run from source instead: `pip install -r source\requirements.txt` then `python source\app.py`.
 
 Tests: `tests/test_backend.py` (exports, black alpha, PNT, projects, library migration) and `tests/test_ui.cjs` (Playwright walkthrough). Start the app with `python source/app.py --no-browser --session-file <dir>/session.json`, create `<dir>/fixtures/test-gear.psd` with `tests/make_test_psd.py`, then pass `<dir>` to either test. The old Moto Gear suites are kept in `tests/legacy-moto-gear/` for reference.
 

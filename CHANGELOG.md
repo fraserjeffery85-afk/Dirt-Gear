@@ -1,5 +1,11 @@
 # Dirt Gear releases
 
+## v1.0.7 — 2026-10-30
+
+**New logo and wordmark**
+- New Dirt Gear icon: three tread chevrons with a white lead. It's used for the app, the installer and taskbar icon, and Discord announcements.
+- New clean, modern "DIRT GEAR" wordmark in the top bar and on the start screen.
+
 ## v1.0.6 — 2026-10-30
 
 **Dirt Gear: everything new since Moto Gear v1.3**

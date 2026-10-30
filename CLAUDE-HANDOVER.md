@@ -9,8 +9,8 @@ The engine is Moto Gear v1.3's, kept deliberately: PSD handling, Norm/Spec detec
 **Frontend (rewritten look, same logic)**
 - `source/static/index.html`: new structure (top bar with a doc pill, a card-based right panel, a pinned Finish & ride panel, an inline SVG icon sprite). **Every element ID from v1.3 is preserved**, so `app.js` logic is unchanged.
 - `source/static/style.css`: new dark design system. Tokens are on `:root` (`--accent:#D7FF3C` fluoro lime, graphite panels). Layer visibility checkboxes are styled as eye, eye-off and lock icons through CSS masks. Other checkboxes are toggle switches.
-- `source/static/brand.otf`: a copy of the bundled `MxFont - Racer.otf`, used for the wordmark.
-- `source/static/icon.svg` and `source/icon.ico`: the new "D" mark.
+- `source/static/brand.ttf`: Saira variable italic (SIL OFL, licence in `brand-OFL.txt`), used for the wordmark at weight 900 / width 125% (since v1.0.7).
+- `source/static/icon.svg` and `source/icon.ico`: the tread-V chevron mark (v1.0.7). `docs/dirt-gear-logo.png` is the Discord avatar.
 - `app.js` edits: the `X-Dirt-Token`/`X-Dirt-Desktop` headers, the palette key `dirtGearPalette` (reads the old `motoGearPalette` as a fallback), a lime selection outline, `body.has-doc` and `body.pending` classes for status dots, and branding strings.
 - `viewer.js`: the global was renamed `MotoRider` → `DirtRider`. The black backdrop is kept.
 

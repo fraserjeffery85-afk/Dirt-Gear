@@ -21,7 +21,7 @@ with ZipFile(OUTPUT, 'w', compression=ZIP_DEFLATED, compresslevel=6, allowZip64=
 with ZipFile(OUTPUT) as archive:
     assert archive.getinfo('Dirt Gear.exe').file_size > 1_000_000
     assert archive.getinfo('_internal/static/app.js').file_size > 1000
-    assert archive.getinfo('_internal/static/brand.otf').file_size > 1000
+    assert archive.getinfo('_internal/static/brand.ttf').file_size > 1000
     assert archive.getinfo('_internal/VERSION.txt').file_size > 0
     assert archive.getinfo('_internal/update_public_key.pem').file_size > 0
     assert not any(name.lower().endswith('signing-key.pem') for name in archive.namelist())
