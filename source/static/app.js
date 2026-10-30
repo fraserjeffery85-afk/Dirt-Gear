@@ -18,7 +18,8 @@ function snapshot(){if(!state)return;undo.push(JSON.stringify(state.artworks));i
 function undoAction(back=false){const from=back?redo:undo,to=back?undo:redo;if(!from.length)return;to.push(JSON.stringify(state.artworks));state.artworks=JSON.parse(from.pop());selected=null;dirty=true;renderArtList();draw();}
 function imageLoad(src){return new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>reject(Error('Could not load image'));im.src=src})}
 function current(){return state?.artworks.find(x=>x.id===selected)}
-function getState(){state.name=$('gearName').value.trim()||'Dirt Gear';return state}
+let lastRev=0;
+function getState(){state.name=$('gearName').value.trim()||'Dirt Gear';lastRev=Math.max(Date.now(),lastRev+1);state.rev=lastRev;return state}
 function readStoredPalette(){try{return JSON.parse(localStorage.getItem('dirtGearPalette')||localStorage.getItem('motoGearPalette')||'[]')}catch{return[]}}
 function storePalette(){try{localStorage.setItem('dirtGearPalette',JSON.stringify(state.palette))}catch{}}
 function canonicalColor(value){return /^#[0-9a-f]{6}$/i.test(value||'')?value.toUpperCase():null}

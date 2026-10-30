@@ -1,5 +1,14 @@
 # Dirt Gear releases
 
+## v1.0.4 — 2026-10-30
+
+Fixes for layers not switching off and the canvas going blank.
+
+- **Layer effects in the fast preview:** colour, pattern and gradient overlays and strokes are drawn once at full quality, then cached. Before, one layer with a Pattern Overlay (e.g. "Calque 95" in the Fox 180 Draft PSD) sent the whole PSD back to the slow full-4K renderer, about 25 s per change. Clicks then piled up and layers looked stuck or the canvas went blank. On that PSD: first preview ~25 s → ~2 s, each toggle ~1 s.
+- **Out-of-order requests are ignored:** each change carries a sequence number, so an older request can't switch back layers you've already changed.
+- **Layers with no pixel data** (some smart objects) are treated as transparent, as psd-tools does. Before, switching one on could turn the whole preview white.
+- Tip: colourway layers like Honda / Navy / Orange / Pink are each full-canvas, so only the top visible one shows. Turn the top one off to see the next.
+
 ## v1.0.3 — 2026-10-30
 
 - First signed release: if you have v1.0.2, this arrives through **Download and install** in the app.

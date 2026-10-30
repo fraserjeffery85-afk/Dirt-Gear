@@ -262,6 +262,15 @@ class Document:
         return None
 
     def update(self, data):
+        # Requests can reach the server out of order (threads waiting on the
+        # lock aren't served first-come-first-served). The editor stamps each
+        # request with an increasing number; an older one must never put back
+        # visibility or artwork the user has already changed.
+        rev = data.get('rev')
+        if isinstance(rev, (int, float)) and math.isfinite(rev):
+            if rev < getattr(self, 'last_rev', 0):
+                return
+            self.last_rev = rev
         for key in ('shading', 'normal', 'spec'):
             val = data.get(key, self.state[key])
             if val and val not in self.layers:
@@ -426,6 +435,9 @@ class Document:
             key = ids.get(id(layer))
             if key is None:
                 raise fastpreview.Unsupported('unknown layer')
+            if isinstance(kind, tuple):   # a layer effect, drawn once and cached
+                return self.fast_cache.get((key, scale) + kind,
+                                           lambda: fastpreview.effect_data(layer, kind[0], kind[1], kind[2], scale))
             data = self.fast_cache.get((key, scale), lambda: fastpreview.layer_data(layer, scale))
             return fastpreview.as_float(data, kind)
         return source

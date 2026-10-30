@@ -33,6 +33,9 @@ jobs:
       - name: Updater tests
         run: python tests/test_updater.py
 
+      - name: Layer toggle regression tests
+        run: python tests/test_toggle_regressions.py
+
       - name: Build app
         env:
           REPO: ${{ github.repository }}

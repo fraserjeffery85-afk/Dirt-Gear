@@ -172,6 +172,11 @@ class ScaledCompositor(ptc.Compositor):
             raise Unsupported('vector stroke')
         color, cbox = self._source(layer, 'color')
         shape, sbox = self._source(layer, 'shape')
+        if color is None and shape is None:
+            # No pixel data at all: psd-tools composites this as fully
+            # transparent (colour 1, shape 0) -- it must not cover the canvas.
+            empty = np.zeros((self.height, self.width, 1), dtype=np.float32)
+            return np.ones((self.height, self.width, 1), dtype=np.float32), empty, empty * 1.0
         if color is None:
             color = np.ones((self.height, self.width, 1), dtype=np.float32)
         else:
@@ -271,20 +276,80 @@ class ScaledCompositor(ptc.Compositor):
             full[region] = getattr(sub, name)
 
     def _apply_effects(self, layer, source):
+        """psd-tools 1.19 _apply_effects, with each effect drawn once at full
+        resolution (cached, downscaled) instead of per preview."""
         effects = layer.effects
         if not effects:
             return
-        for name in ('patternoverlay', 'gradientoverlay', 'stroke'):
-            if any(True for _ in effects.find(name)):
-                raise Unsupported(name)
-        for effect in ptc._styled(effects.find('coloroverlay')):
-            fill, _ = ptc.paint.draw_solid_color_fill((0, 0, 1, 1), layer._psd.color_mode, effect.value)
-            if fill is None:
-                continue
-            colour = fill.reshape(1, 1, -1)
-            color = np.broadcast_to(colour, (self.height, self.width, colour.shape[-1])).astype(np.float32)
-            opacity = effect.opacity / 100.0
-            self._apply_source(color, source.shape, source.alpha * opacity, effect.blend_mode)
+        for name in ('coloroverlay', 'patternoverlay', 'gradientoverlay'):
+            for index, effect in enumerate(ptc._styled(effects.find(name))):
+                data = self._source(layer, ('overlay', name, index))
+                if data is None:
+                    continue
+                (fill, box), shape_data = data
+                color = ptc.paste(self._viewport, box, fill, 1.0)
+                if shape_data is None:
+                    shape_e = np.ones((self.height, self.width, 1), dtype=np.float32)
+                else:
+                    shape_e = ptc.paste(self._viewport, shape_data[1], shape_data[0])
+                opacity = effect.opacity / 100.0
+                self._apply_source(color, source.shape * shape_e, source.alpha * shape_e * opacity,
+                                   effect.blend_mode)
+        strokes = list(ptc._styled(effects.find('stroke')))
+        if strokes:
+            traces_mask = not layer.has_pixels() and utils.has_fill(layer)
+            if traces_mask:
+                raise Unsupported('stroke on a vector shape')
+            for index, effect in enumerate(strokes):
+                data = self._source(layer, ('stroke', 'stroke', index))
+                if data is None:
+                    continue
+                (fill, box), (shape_s, sbox) = data
+                color = ptc.paste(self._viewport, box, fill)
+                shape = ptc.paste(self._viewport, sbox, shape_s)
+                opacity = effect.opacity / 100.0
+                self._apply_source(color, shape, shape * opacity, effect.blend_mode)
+
+
+def effect_data(layer, kind, name, index, scale):
+    """Draw one layer effect at full resolution with psd-tools and downscale it.
+
+    Overlays depend only on the layer's box and the effect settings; a stroke
+    depends on the layer's own coverage. Neither depends on other layers'
+    visibility, so the result is cached per layer."""
+    effect = list(ptc._styled(layer.effects.find(name)))[index]
+    bbox = layer.bbox
+    if kind == 'overlay':
+        fill, shape_e = ptc._OVERLAY_DRAWS[name](layer, effect.value, 3)
+        if fill is None:
+            return None
+    else:
+        shape = layer.numpy('shape')
+        if shape is None:
+            shape = np.ones((bbox[3] - bbox[1], bbox[2] - bbox[0], 1), dtype=np.float32)
+        if layer.mask is not None and not layer.mask.disabled:
+            mask = layer.numpy('mask', real_mask=True)
+            if mask is not None:
+                shape = shape * ptc.paste(bbox, layer.mask.bbox, mask, layer.mask.background_color / 255.0)
+        fill, shape_e = ptc.draw_stroke_effect(bbox, shape.astype(np.float32), effect.value, layer._psd)
+    fill = np.asarray(fill, dtype=np.float32)
+    if fill.ndim == 2:
+        fill = fill[:, :, None]
+    if fill.shape[:2] != (bbox[3] - bbox[1], bbox[2] - bbox[0]):
+        # A solid colour fill comes back as a single pixel; spread it over the box.
+        fill = np.broadcast_to(fill.reshape(1, 1, -1), (bbox[3] - bbox[1], bbox[2] - bbox[0], fill.shape[-1]))
+    padded, box = _grid(bbox, scale, np.ascontiguousarray(fill), 1.0 if kind == 'overlay' else 0.0)
+    out_fill = (_resize(padded, (box[2] - box[0], box[3] - box[1])), box)
+    out_shape = None
+    if shape_e is not None:
+        shape_e = np.asarray(shape_e, dtype=np.float32)
+        if shape_e.ndim == 2:
+            shape_e = shape_e[:, :, None]
+        padded, sbox = _grid(bbox, scale, np.ascontiguousarray(shape_e), 0.0)
+        out_shape = (_resize(padded, (sbox[2] - sbox[0], sbox[3] - sbox[1])), sbox)
+    elif kind == 'stroke':
+        raise Unsupported('stroke without coverage')
+    return out_fill, out_shape
 
 
 import os
