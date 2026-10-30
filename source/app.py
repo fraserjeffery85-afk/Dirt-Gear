@@ -798,7 +798,8 @@ def render_text_bitmap(settings, scale=1):
         bounds = ImageDraw.Draw(Image.new('RGBA',(1,1))).multiline_textbbox((0,0),value,font=font,stroke_width=stroke,spacing=spacing,align='center')
     else:
         glyphs, bounds = _tracked_layout(value, font, stroke, spacing, tracking_px)
-    width,height=math.ceil(bounds[2]-bounds[0])+2*margin,math.ceil(bounds[3]-bounds[1])+2*margin
+    # Round away float noise first so a near-zero spacing can't add a pixel.
+    width,height=math.ceil(round(bounds[2]-bounds[0],3))+2*margin,math.ceil(round(bounds[3]-bounds[1],3))+2*margin
     if width*height>64*1024*1024 or max(width,height)>16384:
         raise ValueError('Text is too large. Reduce its size or length.')
     im=Image.new('RGBA',(width,height))
