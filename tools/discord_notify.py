@@ -18,7 +18,9 @@ if hook.endswith('/github'):          # the GitHub-format address won't take cus
     hook = hook[: -len('/github')]
 repo = os.environ.get('GITHUB_REPOSITORY', 'fraserjeffery85-afk/Dirt-Gear')
 setup = f'https://github.com/{repo}/releases/download/v{version}/Dirt-Gear-Setup-{version}.exe'
-logo = f'https://raw.githubusercontent.com/{repo}/main/docs/dirt-gear-logo.png'
+# Version-pinned address: Discord caches images per URL, so a fixed address
+# would keep showing an old logo after it changes.
+logo = f'https://raw.githubusercontent.com/{repo}/v{version}/docs/dirt-gear-logo.png?v={version}'
 
 notes = notes_path.read_text(encoding='utf-8').strip()
 footer_links = f'\n\n**[Download Dirt-Gear-Setup-{version}.exe]({setup})** · [Release page]({url})'
