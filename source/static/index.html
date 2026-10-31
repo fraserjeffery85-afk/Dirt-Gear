@@ -84,12 +84,26 @@
   <div id="textStretch" hidden><label class="range-label">Text width <output id="textWidthValue">100%</output><input id="textWidth" type="range" min="20" max="500" value="100"></label></div>
   <label class="range-label">Rotation <output id="rotationValue">0°</output><input id="rotation" type="range" min="-180" max="180" value="0"></label>
   <label class="range-label">Opacity <output id="opacityValue">100%</output><input id="opacity" type="range" min="0" max="100" value="100"></label>
+  <div id="overlayBox" class="overlay-box">
+   <div class="ov-head"><span>Colour overlay</span><div class="segmented mini" id="overlayMode" role="tablist" aria-label="Colour overlay"><button type="button" data-ov="off" class="active">Off</button><button type="button" data-ov="solid">Colour</button><button type="button" data-ov="gradient">Gradient</button></div></div>
+   <div id="ovSolid" class="ov-body" hidden>
+    <div class="ov-row"><input id="ovColor" type="color" value="#ffffff" aria-label="Overlay colour"><button type="button" class="ov-pick" data-ovpick="ovColor">Pick from gear</button></div>
+    <div id="ovColorSwatches" class="swatches"></div>
+   </div>
+   <div id="ovGradient" class="ov-body" hidden>
+    <div class="ov-row ov-stops"><label>Start<input id="ovStart" type="color" value="#ff4020"></label><button type="button" id="ovSwap" class="ov-swap" title="Swap start and end" aria-label="Swap start and end">⇄</button><label>End<input id="ovEnd" type="color" value="#ffd020"></label></div>
+    <div class="ov-row"><button type="button" class="ov-pick" data-ovpick="ovStart">Pick start</button><button type="button" class="ov-pick" data-ovpick="ovEnd">Pick end</button></div>
+    <div class="ov-sw"><small>Start</small><div id="ovStartSwatches" class="swatches"></div><small>End</small><div id="ovEndSwatches" class="swatches"></div></div>
+    <label class="ov-dir">Direction<select id="ovAngle"><option value="0">Left to right</option><option value="90" selected>Top to bottom</option><option value="45">Diagonal ↘</option><option value="135">Diagonal ↙</option><option value="180">Right to left</option><option value="270">Bottom to top</option></select></label>
+   </div>
+   <label id="ovStrengthLabel" class="range-label" hidden>Strength <output id="ovStrengthValue">100%</output><input id="ovStrength" type="range" min="0" max="100" value="100"></label>
+  </div>
   <details class="advanced-controls"><summary>Position, size &amp; more</summary>
    <div class="fields"><label>X<input id="posX" type="number" step="1"></label><label>Y<input id="posY" type="number" step="1"></label><label>W<input id="artWidth" type="number" min="1" step="1"></label><label>H<input id="artHeight" type="number" min="1" step="1"></label></div>
    <label class="checkline"><input id="lockRatio" type="checkbox" checked> Keep proportions</label>
    <label class="checkline"><input id="snapRotation" type="checkbox" checked> Snap rotation to 15°</label>
    <div class="minor-actions"><button id="rotateLeft" type="button">−90°</button><button id="rotateReset" type="button">0°</button><button id="rotateRight" type="button">+90°</button></div>
-   <label class="checkline"><input id="colorizeArtwork" type="checkbox"> Tint with one colour</label>
+   <input id="colorizeArtwork" type="checkbox" hidden>
    <button id="removeWhite" type="button" class="full">Remove white background</button>
    <p class="hint">For pasted art with a white box around it.</p>
   </details>

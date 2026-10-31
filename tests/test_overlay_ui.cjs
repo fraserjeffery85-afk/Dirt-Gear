@@ -1,0 +1,40 @@
+const {chromium}=require('playwright');const fs=require('fs');
+const SP=process.argv[2];const s=JSON.parse(fs.readFileSync(SP+'/session.json'));
+const ok=(c,m)=>{if(!c)throw Error('FAIL '+m);console.log('PASS',m)};
+(async()=>{const b=await chromium.launch();const p=await b.newPage({viewport:{width:1500,height:980}});
+const errs=[];p.on('pageerror',e=>errs.push(e.message));p.on('dialog',d=>d.accept());
+const idle=()=>p.waitForFunction(()=>!document.getElementById('busyDialog').open,null,{timeout:120000});
+await p.goto(s.url);await p.setInputFiles('#psdInput',SP+'/fixtures/test-gear.psd');
+await p.waitForFunction(()=>ready&&images.default&&!document.getElementById('busyDialog').open,null,{timeout:120000});
+// saved colours
+await p.click('.palette-panel summary');for(const c of ['#00C8FF','#FF2D95']){await p.fill('#artColorHex',c);await p.click('#saveSwatch')}
+await p.setInputFiles('#artInput',SP+'/fixtures/logo-red.png');await idle();await p.waitForTimeout(500);
+ok(await p.isVisible('#overlayBox'),'Colour overlay shown for a logo');
+ok(await p.evaluate(()=>document.querySelector('#overlayMode .active').dataset.ov)==='off','starts Off');
+await p.click('#overlayMode [data-ov=solid]');
+await p.locator('#ovColorSwatches .swatch[title="#00C8FF"]').click();
+let ov=await p.evaluate(()=>state.artworks[0].overlay);
+ok(ov&&ov.mode==='solid'&&ov.color==='#00C8FF'&&ov.strength===1,'solid colour from saved swatch');
+// editing canvas tint
+const tinted=await p.evaluate(()=>{const c=artworkImage(state.artworks[0]);const g=c.getContext('2d');const d=g.getImageData(40,100,1,1).data;return [d[0],d[1],d[2]]});
+ok(tinted[0]<20&&tinted[2]>230,'editing preview recolours instantly '+JSON.stringify(tinted));
+await p.waitForFunction(()=>proofKey===previewKey(),null,{timeout:60000});ok(true,'shaded preview updated with overlay');
+await p.fill('#ovStrength','60');await p.dispatchEvent('#ovStrength','input');await p.dispatchEvent('#ovStrength','change');
+ok(await p.evaluate(()=>state.artworks[0].overlay.strength)===0.6,'strength 60%');
+await p.click('#overlayMode [data-ov=gradient]');
+await p.locator('#ovStartSwatches .swatch[title="#00C8FF"]').click();await p.locator('#ovEndSwatches .swatch[title="#FF2D95"]').click();
+await p.selectOption('#ovAngle','0');
+ov=await p.evaluate(()=>state.artworks[0].overlay);
+ok(ov.mode==='gradient'&&ov.start==='#00C8FF'&&ov.end==='#FF2D95'&&ov.angle===0,'gradient with saved colours, left→right');
+await p.click('#ovSwap');ok(await p.evaluate(()=>state.artworks[0].overlay.start)==='#FF2D95','swap start/end');
+await p.waitForFunction(()=>proofKey===previewKey(),null,{timeout:60000});
+await p.screenshot({path:SP+'/shots/DirtGear-colour-overlay.png'});
+await p.keyboard.press('Control+z');ok(await p.evaluate(()=>state.artworks[0].overlay.start)==='#00C8FF','undo reverts last overlay change');
+await p.click('#overlayMode [data-ov=off]');ok(await p.evaluate(()=>!state.artworks[0].overlay&&!state.artworks[0].color),'Off removes the overlay');
+await p.keyboard.press('Control+z');ok(await p.evaluate(()=>state.artworks[0].overlay?.mode)==='gradient','undo brings it back');
+const count=async()=>(await p.evaluate(async()=>(await (await fetch('/api/logos?token='+token)).json()))).length;const before=await count();
+await p.click('#saveLogo');await p.waitForTimeout(500);
+ok(await count()===before+1,'saved to logo library with overlay baked in');
+await p.click('#addName');await p.waitForSelector('#textDialog[open]');await p.click('#applyText');await idle();await p.waitForTimeout(300);
+ok(await p.isHidden('#overlayBox'),'overlay hidden for names/numbers (they have their own colours)');
+ok(errs.length===0,'no page errors '+JSON.stringify(errs));await b.close()})().catch(e=>{console.error(e.message);process.exit(1)});

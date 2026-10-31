@@ -113,6 +113,64 @@ def png(image, size=None):
     return out.getvalue()
 
 
+def artwork_overlay(art):
+    """The colour overlay for an added logo, or None.
+
+    New style: art['overlay'] = {'mode': 'solid', 'color', 'strength'} or
+    {'mode': 'gradient', 'start', 'end', 'angle', 'strength'}. Older projects
+    store a single tint in art['color'], which is a full-strength solid overlay."""
+    overlay = art.get('overlay')
+    if overlay:
+        return overlay
+    if art.get('color'):
+        return {'mode': 'solid', 'color': art['color'], 'strength': 1}
+    return None
+
+
+def validate_overlay(overlay):
+    if overlay is None:
+        return
+    if not isinstance(overlay, dict) or overlay.get('mode') not in ('solid', 'gradient'):
+        raise ValueError('Colour overlay must be a solid colour or a gradient.')
+    keys = ('color',) if overlay['mode'] == 'solid' else ('start', 'end')
+    for key in keys:
+        if not re.fullmatch(r'#[0-9a-fA-F]{6}', str(overlay.get(key, ''))):
+            raise ValueError('Overlay colours must be six-digit hex codes.')
+    strength = overlay.get('strength', 1)
+    angle = overlay.get('angle', 90)
+    if not isinstance(strength, (int, float)) or not math.isfinite(strength) or not 0 <= strength <= 1:
+        raise ValueError('Overlay strength must be between 0 and 100%.')
+    if not isinstance(angle, (int, float)) or not math.isfinite(angle):
+        raise ValueError('Choose a valid gradient direction.')
+
+
+def apply_overlay(image, overlay):
+    """Recolour an RGBA image with a solid or gradient overlay, keeping its alpha.
+
+    Strength blends from the original colours (0) to the overlay (1). Gradients
+    run across the artwork's own box, so they turn with the logo."""
+    if not overlay:
+        return image
+    image = image.convert('RGBA')
+    width, height = image.size
+    pixels = np.asarray(image, dtype=np.float32)
+    if overlay['mode'] == 'solid':
+        colour = np.broadcast_to(np.array(ImageColor.getrgb(overlay['color']), dtype=np.float32), (height, width, 3))
+    else:
+        start = np.array(ImageColor.getrgb(overlay['start']), dtype=np.float32)
+        end = np.array(ImageColor.getrgb(overlay['end']), dtype=np.float32)
+        angle = math.radians(float(overlay.get('angle', 90)))
+        dx, dy = math.cos(angle), math.sin(angle)
+        extent = max(1, abs(dx)*(width-1) + abs(dy)*(height-1))
+        yy, xx = np.ogrid[:height, :width]
+        t = np.clip(((xx-(width-1)/2)*dx + (yy-(height-1)/2)*dy)/extent + .5, 0, 1)
+        colour = start + t[..., None]*(end-start)
+    strength = float(overlay.get('strength', 1))
+    rgb = pixels[..., :3]*(1-strength) + colour*strength
+    out = np.dstack([np.clip(np.rint(rgb), 0, 255), pixels[..., 3:4]]).astype(np.uint8)
+    return Image.fromarray(out, 'RGBA')
+
+
 class Document:
     def __init__(self, path, name):
         self.path, self.name = Path(path), name
@@ -311,6 +369,7 @@ class Document:
                 raise ValueError('Artwork dimensions or opacity are out of range')
             if art.get('color') and not re.fullmatch(r'#[0-9a-fA-F]{6}', art['color']):
                 raise ValueError('Artwork colour must be a six-digit hex code.')
+            validate_overlay(art.get('overlay'))
         self.state['artworks'] = artworks
 
     def set_visibility(self):
@@ -375,10 +434,7 @@ class Document:
                             self.text_raster_cache.clear()
                         self.text_raster_cache[cache_key]=render_text_bitmap(text_settings,scale)
                     source=self.text_raster_cache[cache_key].copy()
-            if art.get('color'):
-                recolored = Image.new('RGBA', source.size, ImageColor.getrgb(art['color'])+(0,))
-                recolored.putalpha(source.getchannel('A'))
-                source = recolored
+            source = apply_overlay(source, artwork_overlay(art))
             source = source.resize((round(art['width']), round(art['height'])), Image.Resampling.LANCZOS)
             if art['opacity'] < 1:
                 source.putalpha(source.getchannel('A').point(lambda v: round(v*art['opacity'])))
@@ -540,10 +596,7 @@ class Document:
                             self.text_raster_cache.clear()
                         self.text_raster_cache[cache_key] = render_text_bitmap(text_settings, min(need, 8))
                     source = self.text_raster_cache[cache_key]
-            if art.get('color'):
-                recolored = Image.new('RGBA', source.size, ImageColor.getrgb(art['color'])+(0,))
-                recolored.putalpha(source.getchannel('A'))
-                source = recolored
+            source = apply_overlay(source, artwork_overlay(art))
             source = source.resize((w, h), Image.Resampling.LANCZOS)
             if art['opacity'] < 1:
                 source.putalpha(source.getchannel('A').point(lambda v: round(v*art['opacity'])))
@@ -1131,10 +1184,9 @@ def save_logo():
         if source is None:
             raise ValueError('Select artwork to save to your library.')
         image = source['image'].convert('RGBA')
-        if data.get('color'):
-            coloured = Image.new('RGBA', image.size, ImageColor.getrgb(data['color']))
-            coloured.putalpha(image.getchannel('A'))
-            image = coloured
+        overlay = data.get('overlay') or ({'mode': 'solid', 'color': data['color'], 'strength': 1} if data.get('color') else None)
+        validate_overlay(overlay)
+        image = apply_overlay(image, overlay)
         key = uuid.uuid4().hex
         item = {'id':key, 'name':str(data.get('name') or source['name'])[:200]}
         root = library_root()
