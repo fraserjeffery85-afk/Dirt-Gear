@@ -71,6 +71,33 @@ def windows_folder(name: str) -> Path:
     raise ValueError(f'Windows could not find the {name} folder.')
 
 
+def refresh_icons() -> None:
+    """Ask Windows to redraw shortcut icons (it caches them, so an updated
+    app icon otherwise keeps showing the old picture)."""
+    if os.name != 'nt':
+        return
+    try:
+        ctypes.windll.shell32.SHChangeNotify(0x08000000, 0x0000, None, None)  # SHCNE_ASSOCCHANGED
+    except Exception:
+        pass
+    try:
+        subprocess.run(['ie4uinit.exe', '-show'], capture_output=True, timeout=20)
+    except Exception:
+        pass
+
+
+def refresh_shortcuts(executable: Path) -> None:
+    """Re-create existing Desktop/Start menu shortcuts so they pick up the new icon."""
+    for folder in ('DesktopDirectory', 'Programs'):
+        try:
+            link = windows_folder(folder) / 'Dirt Gear.lnk'
+            if link.exists():
+                link.unlink()
+                shortcut(link, executable)
+        except Exception:
+            continue
+
+
 def install(target: Path, make_shortcuts: bool = True) -> Path:
     target = target.expanduser().resolve()
     parent = target.parent
@@ -120,6 +147,7 @@ def install(target: Path, make_shortcuts: bool = True) -> Path:
             shortcut(programs / 'Dirt Gear.lnk', target / 'Dirt Gear.exe')
         if previous and backup.exists():
             shutil.rmtree(backup)
+        refresh_icons()
         return target / 'Dirt Gear.exe'
     finally:
         if stage.exists():
@@ -167,6 +195,8 @@ def run_update(target: Path, pid: int, launch: bool = True) -> None:
     wait_for_process(pid)
     try:
         executable = install(target, make_shortcuts=False)
+        refresh_shortcuts(executable)
+        refresh_icons()
     except Exception as error:
         if os.name == 'nt':
             ctypes.windll.user32.MessageBoxW(None, f'Dirt Gear could not be updated.\n\n{error}\n\n'

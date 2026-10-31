@@ -39,6 +39,9 @@ jobs:
       - name: Letter spacing tests
         run: python tests/test_letter_spacing.py
 
+      - name: Colour overlay tests
+        run: python tests/test_overlay.py
+
       - name: Build app
         env:
           REPO: ${{ github.repository }}

@@ -1,5 +1,22 @@
 # Dirt Gear releases
 
+## v1.1.0 — 2026-10-31
+
+**Colour overlay for logos**
+- Select any logo or image you've added or pasted and use **Colour overlay**:
+  - **Colour:** recolour the whole logo with one colour.
+  - **Gradient:** two colours with a direction and a swap button.
+  - **Strength:** blend from the original colours (0%) to the full overlay (100%).
+- Pick colours from your saved colours, the colour picker, or straight off the gear with **Pick from gear**.
+- Shows instantly, sits under the shading like your other artwork, and exports at full quality.
+- Kept in saved logos, logo layouts and projects. Logos tinted with the old "one colour" option carry over.
+
+**App icon now updates properly**
+- Updating now refreshes your Desktop and Start menu shortcuts and tells Windows to redraw its icons, so the new chevron logo shows instead of the old "D".
+
+**Also**
+- Undo no longer deselects the artwork you're working on.
+
 ## v1.0.7 — 2026-10-30
 
 **New logo and wordmark**
